@@ -1,6 +1,27 @@
 import * as THREE from 'three';
 import type { TextConfig } from './types';
 
+// Check if animation type requires per-character rendering
+export function isPerCharacterAnimation(type: string): boolean {
+  return type === 'wave';
+}
+
+// Get Y offset for a character in wave animation
+export function getWaveOffset(
+  charIndex: number,
+  totalChars: number,
+  t: number,
+  amplitude: number
+): number {
+  // Create a wave that travels across characters
+  // Each character is offset by its position in the text
+  const waveLength = totalChars / 15; // How many "waves" fit across the text
+  const charPhase = (charIndex / Math.max(totalChars - 1, 1)) * waveLength * Math.PI * 2;
+  const timePhase = t * Math.PI * 2;
+
+  return Math.sin(timePhase - charPhase) * amplitude;
+}
+
 // Apply animation transform to a group based on normalized time t (0-1)
 export function applyAnimationTransform(
   group: THREE.Group,
@@ -82,6 +103,11 @@ export function applyAnimationTransform(
         group.scale.setScalar(scale);
         break;
       }
+
+      case 'wave':
+        // Wave animation is handled per-character in Text3D component
+        // Group-level transform only applies initial angle
+        break;
     }
 
     // Apply the initial angle orientation

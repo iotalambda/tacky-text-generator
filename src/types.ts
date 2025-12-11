@@ -6,7 +6,8 @@ export type AnimationType =
   | 'swingX'       // Oscillate around X axis (nod)
   | 'swingZ'       // Oscillate around Z axis (tilt)
   | 'bounce'       // Bounce up and down
-  | 'pulse';       // Scale pulse
+  | 'pulse'        // Scale pulse
+  | 'wave';        // Wave animation - characters move in a wave pattern
 
 export type FaceMaterialType =
   | 'matte'        // Flat, non-reflective surface

@@ -87,6 +87,7 @@ const ANIMATION_TYPES: AnimationType[] = [
   'swingZ',   // Oscillate around Z axis
   'bounce',   // Bounce up and down
   'pulse',    // Scale pulse
+  'wave',     // Wave animation - characters move in a wave pattern
 ];
 
 function randomChoice<T>(arr: T[]): T {
@@ -149,6 +150,10 @@ function randomizeAnimation(): AnimationConfig {
     case 'pulse':
       cycleDuration = randomRange(0.8, 1.5);
       amplitude = randomRange(0.15, 0.25);
+      break;
+    case 'wave':
+      cycleDuration = randomRange(1.5, 2.5);
+      amplitude = randomRange(0.2, 0.4); // Wave height
       break;
     default:
       cycleDuration = randomRange(1.5, 3.0);

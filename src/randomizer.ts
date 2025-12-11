@@ -66,29 +66,35 @@ function randomizeStyle(): TextStyle {
 function randomizeAnimation(): AnimationConfig {
   const type = randomChoice(ANIMATION_TYPES);
 
-  // Cycle duration between 2 and 4 seconds
-  const cycleDuration = randomRange(2.0, 4.0);
-
-  // Amplitude depends on animation type
+  // Cycle duration and amplitude depend on animation type
+  // Spin animations look good with longer durations (2-4s)
+  // Bounce/pulse/swing look better with shorter durations (1-2s)
+  let cycleDuration: number;
   let amplitude: number;
+
   switch (type) {
     case 'spinY':
     case 'spinX':
     case 'spinZ':
+      cycleDuration = randomRange(2.0, 4.0);
       amplitude = 1; // Not used for full spins, but kept for consistency
       break;
     case 'swingY':
     case 'swingX':
     case 'swingZ':
+      cycleDuration = randomRange(1.0, 2.0);
       amplitude = randomRange(0.5, 1.0); // ~29-57 degrees swing
       break;
     case 'bounce':
+      cycleDuration = randomRange(0.8, 1.5);
       amplitude = randomRange(0.3, 0.5);
       break;
     case 'pulse':
+      cycleDuration = randomRange(0.8, 1.5);
       amplitude = randomRange(0.15, 0.25);
       break;
     default:
+      cycleDuration = randomRange(1.5, 3.0);
       amplitude = 0.5;
   }
 

@@ -4,10 +4,12 @@ import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { Text3DComponent } from './Text3D';
 import { applyAnimationTransform } from './animation';
+import { DitherEffect } from './DitherEffect';
 import type { TextConfig } from './types';
 
 interface SceneProps {
   config: TextConfig | null;
+  onCalibrationComplete?: (bounds: ScreenBounds) => void;
 }
 
 // Screen-space bounding box (normalized 0-1 coordinates)
@@ -278,6 +280,40 @@ function CameraPositionSetter({ z }: { z: number }) {
   return null;
 }
 
+// 16 static lights surrounding the text at various positions
+function SurroundingLights() {
+  // Generate 16 light positions distributed around the text
+  // Using a combination of spherical distribution for good coverage
+  const lights = [];
+  const numLights = 16;
+
+  for (let i = 0; i < numLights; i++) {
+    // Use golden ratio spiral for even distribution on sphere
+    const phi = Math.acos(1 - 2 * (i + 0.5) / numLights); // Polar angle
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i; // Azimuthal angle (golden ratio)
+
+    // Vary distance between 4 and 8 units
+    const distance = 4 + (i % 4) * 1.5;
+
+    const x = distance * Math.sin(phi) * Math.cos(theta);
+    const y = distance * Math.sin(phi) * Math.sin(theta);
+    const z = distance * Math.cos(phi);
+
+    lights.push(
+      <pointLight
+        key={i}
+        position={[x, y, z]}
+        intensity={2}
+        color="#ffffff"
+        distance={30}
+        decay={1}
+      />
+    );
+  }
+
+  return <>{lights}</>;
+}
+
 function SceneContent({ config, onClockMount, onCalibrationComplete }: SceneContentProps) {
   const textGroupRef = useRef<THREE.Group>(null);
   const [calibratedZ, setCalibratedZ] = useState<number | null>(null);
@@ -312,15 +348,18 @@ function SceneContent({ config, onClockMount, onCalibrationComplete }: SceneCont
         intensity={config.light.intensity}
         castShadow
       />
-      <pointLight position={[-5, 5, 5]} intensity={0.8} />
-      <pointLight position={[5, -2, 3]} intensity={0.5} />
+      {/* 16 lights surrounding the text */}
+      <SurroundingLights />
 
       {/* Environment map for reflections */}
-      <Environment preset="studio" />
+      <Environment preset="lobby" />
 
       <Suspense fallback={null}>
         <Text3DComponent groupRef={textGroupRef} config={config} />
       </Suspense>
+
+      {/* Dithering post-processing effect */}
+      <DitherEffect />
     </>
   );
 }
@@ -367,7 +406,7 @@ function BoundingBoxOverlay({ bounds }: { bounds: ScreenBounds }) {
   );
 }
 
-export const Scene = forwardRef<SceneHandle, SceneProps>(({ config }, ref) => {
+export const Scene = forwardRef<SceneHandle, SceneProps>(({ config, onCalibrationComplete: onCalibrationCompleteProp }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const clockFnsRef = useRef<{ reset: () => void; getT: () => number } | null>(null);
   const screenBoundsRef = useRef<ScreenBounds | null>(null);
@@ -425,6 +464,7 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(({ config }, ref) => {
             screenBoundsRef.current = bounds;
             setDisplayBounds(bounds);
             setCalibratedConfigKey(configKey);
+            onCalibrationCompleteProp?.(bounds);
           }}
         />
       </Canvas>

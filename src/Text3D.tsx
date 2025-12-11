@@ -4,6 +4,7 @@ import { Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TextConfig } from './types';
 import { applyAnimationTransform } from './animation';
+import { createBevelEdgeMaterial } from './BevelEdgeMaterial';
 
 interface Text3DComponentProps {
   config: TextConfig;
@@ -26,23 +27,51 @@ export function Text3DComponent({ config, groupRef }: Text3DComponentProps) {
     applyAnimationTransform(groupRef.current, config, t);
   });
 
-  // Create materials
+  // Create face material based on material type
   const faceMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
+    const baseProps = {
       color: config.style.faceColor,
-      metalness: config.style.metalness,
-      roughness: config.style.roughness,
-      envMapIntensity: 1.5,
-    });
-  }, [config.style.faceColor, config.style.metalness, config.style.roughness]);
+      emissive: config.style.faceColor,
+      emissiveIntensity: 0.001,
+    };
+
+    switch (config.style.faceMaterial) {
+      case 'matte':
+        // Flat, non-reflective surface
+        return new THREE.MeshStandardMaterial({
+          ...baseProps,
+          metalness: 0.0,
+          roughness: 0.9,
+          envMapIntensity: 0.1,
+        });
+      case 'glossy':
+        // Shiny plastic look - non-metallic but reflective
+        return new THREE.MeshStandardMaterial({
+          ...baseProps,
+          metalness: 0.0,
+          roughness: 0.15,
+          envMapIntensity: 0.8,
+        });
+      case 'metallic':
+      default:
+        // Highly reflective metal look (original)
+        return new THREE.MeshStandardMaterial({
+          ...baseProps,
+          metalness: 0.95,
+          roughness: 0.05,
+          envMapIntensity: 1.0,
+        });
+    }
+  }, [config.style.faceColor, config.style.faceMaterial]);
 
   const sideMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: config.style.sideColor,
-      metalness: config.style.metalness * 0.8,
-      roughness: config.style.roughness + 0.1,
-    });
-  }, [config.style.sideColor, config.style.metalness, config.style.roughness]);
+    return createBevelEdgeMaterial(
+      config.style.sideColor1,
+      config.style.sideColor2,
+      config.style.edgeColor,
+      config.style.edgeColorEnabled
+    );
+  }, [config.style.sideColor1, config.style.sideColor2, config.style.edgeColor, config.style.edgeColorEnabled]);
 
   const lineHeight = 1.4;
 

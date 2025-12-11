@@ -1,10 +1,14 @@
 import GIF from 'gif.js';
 import type { ScreenBounds } from './Scene';
 
+// Fixed output fps for consistent GIF sizes
+// Lower FPS = smaller file size. 12 FPS is common for retro-style GIFs
+const TARGET_FPS = 12;
+
 export interface GifCaptureOptions {
   width: number;
   height: number;
-  fps: number; // Target fps (used to calculate frame delay from cycle duration)
+  fps: number; // Legacy - now uses TARGET_FPS constant
   quality: number; // 1-30, lower is better quality but larger file
   getAnimationT: () => number; // Function to get current animation progress (0-1)
   cycleDuration: number; // Animation cycle duration in seconds
@@ -75,6 +79,10 @@ export async function captureGif(
   // Store frames until cycle completes
   const frames: ImageData[] = [];
 
+  // Calculate target frame count and timing for consistent output
+  const targetFrameCount = Math.round(cycleDuration * TARGET_FPS);
+  const frameDelay = Math.round(1000 / TARGET_FPS); // ms per frame
+
   return new Promise((resolve) => {
     // Track animation progress to detect cycle completion
     let previousT = getAnimationT();
@@ -92,11 +100,22 @@ export async function captureGif(
       previousT = currentT;
 
       if (cycleCompleted) {
-        // Calculate frame delay based on cycle duration and number of frames captured
-        // This ensures GIF plays at the same speed as the preview
-        const frameDelay = Math.round((cycleDuration * 1000) / frames.length);
+        // Select frames evenly distributed across the captured frames
+        // to match our target frame count for consistent output
+        const selectedFrames: ImageData[] = [];
 
-        // Cycle complete - now render the GIF with collected frames
+        if (frames.length <= targetFrameCount) {
+          // We have fewer frames than target, use all of them
+          selectedFrames.push(...frames);
+        } else {
+          // Sample frames evenly to get exactly targetFrameCount frames
+          for (let i = 0; i < targetFrameCount; i++) {
+            const sourceIndex = Math.floor((i / targetFrameCount) * frames.length);
+            selectedFrames.push(frames[sourceIndex]);
+          }
+        }
+
+        // Cycle complete - now render the GIF with selected frames
         const gif = new GIF({
           workers: 2,
           quality,
@@ -104,6 +123,7 @@ export async function captureGif(
           height: outputHeight,
           workerScript: '/gif.worker.js',
           transparent: 0x000000,
+          dither: false, // Dithering already applied by shader, disable gif.js dithering
         });
 
         gif.on('finished', (blob: Blob) => {
@@ -114,8 +134,8 @@ export async function captureGif(
           onProgress?.(p);
         });
 
-        // Add all captured frames to the GIF
-        for (const frameData of frames) {
+        // Add selected frames to the GIF
+        for (const frameData of selectedFrames) {
           ctx.putImageData(frameData, 0, 0);
           gif.addFrame(scaledCanvas, { delay: frameDelay, copy: true, transparent: 0x000000 });
         }

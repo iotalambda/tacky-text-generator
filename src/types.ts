@@ -8,10 +8,19 @@ export type AnimationType =
   | 'bounce'       // Bounce up and down
   | 'pulse';       // Scale pulse
 
+export type FaceMaterialType =
+  | 'matte'        // Flat, non-reflective surface
+  | 'metallic'     // Highly reflective metal look
+  | 'glossy';      // Shiny plastic look
+
 export interface TextStyle {
   fontUrl: string;
   faceColor: string;
-  sideColor: string;
+  faceMaterial: FaceMaterialType; // Material type for the face
+  sideColor1: string; // First side color (blends with sideColor2)
+  sideColor2: string; // Second side color (blends with sideColor1)
+  edgeColor: string; // Color for the bevel edge between face and side
+  edgeColorEnabled: boolean; // Whether edge coloring is used
   depth: number;
   bevelEnabled: boolean;
   bevelThickness: number;

@@ -1,22 +1,22 @@
-import type { TextConfig, TextStyle, AnimationConfig, AnimationType, CameraConfig, LightConfig } from './types';
+import type { TextConfig, TextStyle, AnimationConfig, AnimationType, CameraConfig, LightConfig, FaceMaterialType } from './types';
 
-// Tacky WordArt color combinations [face, side] - side must be DIFFERENT from face
-const COLOR_SCHEMES: [string, string][] = [
-  ['#9966ff', '#8B0000'], // Purple / Maroon
-  ['#00ff00', '#006400'], // Lime / Dark Green
-  ['#FFD700', '#0000CD'], // Yellow / Blue
-  ['#87CEEB', '#191970'], // Light Blue / Navy
-  ['#0000CD', '#FFD700'], // Blue / Gold
-  ['#FF0000', '#000000'], // Red / Black
-  ['#FF6600', '#800080'], // Orange / Purple
-  ['#FF69B4', '#4B0082'], // Pink / Indigo
-  ['#C0C0C0', '#2F2F2F'], // Silver / Dark Gray
-  ['#00FFFF', '#8B0000'], // Cyan / Maroon
-  ['#FF00FF', '#006400'], // Magenta / Forest Green
-  ['#32CD32', '#8B4513'], // Lime Green / Brown
-  ['#FF4500', '#000080'], // OrangeRed / Navy
-  ['#9400D3', '#FFD700'], // Violet / Gold
-  ['#1E90FF', '#FF4500'], // Dodger Blue / OrangeRed
+// Neon color combinations [face, side1 (neon), side2 (different neon), edge (neon)]
+const COLOR_SCHEMES: [string, string, string, string][] = [
+  ['#FF00FF', '#00FF00', '#FFFF00', '#00FFFF'], // Magenta face / Green side1 / Yellow side2 / Cyan edge
+  ['#009700', '#FF00FF', '#009dff', '#FFFF00'], // Green face / Magenta side1 / Cyan side2 / Yellow edge
+  ['#FF6600', '#ff00a6', '#e5ff00', '#222222'], // Yellow face / Magenta side1 / Green side2 / Cyan edge
+  ['#0800ff', '#FF6600', '#FF00FF', '#00FF00'], // Cyan face / Orange side1 / Magenta side2 / Green edge
+  ['#FF6600', '#00ffff', '#FF00FF', '#222222'], // Orange face / Cyan side1 / Magenta side2 / Yellow edge
+  ['#FF0080', '#00FF80', '#FFFF00', '#00FFFF'], // Pink face / Mint side1 / Yellow side2 / Cyan edge
+  ['#22ff00', '#002aff', '#ff00aa', '#FFFF00'], // Mint face / Pink side1 / Cyan side2 / Yellow edge
+  ['#FF3300', '#00FFFF', '#00FF00', '#FF00FF'], // Red-Orange face / Cyan side1 / Green side2 / Magenta edge
+  ['#6c005d', '#FF0080', '#00FFFF', '#00FF00'], // Yellow face / Pink side1 / Cyan side2 / Green edge
+  ['#0800ff', '#FFFF00', '#FF00FF', '#00FF00'], // Cyan face / Yellow side1 / Magenta side2 / Green edge
+  ['#FF00FF', '#FFFF00', '#00FFFF', '#00FF00'], // Magenta face / Yellow side1 / Cyan side2 / Green edge
+  ['#00ff00', '#FF3300', '#002aff', '#FF00FF'], // Green face / Red side1 / Cyan side2 / Magenta edge
+  ['#FF0080', '#00FFFF', '#FFFF00', '#00FF00'], // Pink face / Cyan side1 / Yellow side2 / Green edge
+  ['#FF6600', '#00FF00', '#FFFF00', '#222222'], // Yellow face / Green side1 / Magenta side2 / Cyan edge
+  ['#0800ff', '#FF00FF', '#FFFF00', '#00FF00'], // Cyan face / Magenta side1 / Yellow side2 / Green edge
 ];
 
 // Fonts with weights for weighted random selection
@@ -54,16 +54,13 @@ const INITIAL_ANGLE_WEIGHT_DIAGONAL = 20;   // 30° to corners (bl, tl, br, tr)
 const WEIGHTED_INITIAL_ANGLES: { angle: { x: number; y: number }; weight: number }[] = [
   // Straight at viewer
   { angle: { x: 0, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_STRAIGHT },
-  // Cardinal directions (20 degrees)
+  // Cardinal directions (20 degrees) - excluding down
   { angle: { x: -20 * Math.PI / 180, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },  // Up
-  { angle: { x: 20 * Math.PI / 180, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },   // Down
   { angle: { x: 0, y: -20 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },  // Left
   { angle: { x: 0, y: 20 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },   // Right
-  // Diagonal directions (30 degrees)
+  // Diagonal directions (30 degrees) - only top-left and top-right
   { angle: { x: -30 * Math.PI / 180, y: -30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL }, // Top-left
   { angle: { x: -30 * Math.PI / 180, y: 30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },  // Top-right
-  { angle: { x: 30 * Math.PI / 180, y: -30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },  // Bottom-left
-  { angle: { x: 30 * Math.PI / 180, y: 30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },   // Bottom-right
 ];
 
 function weightedRandomInitialAngle(): { x: number; y: number } {
@@ -100,17 +97,24 @@ function randomRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+// Face material types
+const FACE_MATERIALS: FaceMaterialType[] = ['matte', 'metallic', 'glossy'];
+
 function randomizeStyle(): TextStyle {
   const colors = randomChoice(COLOR_SCHEMES);
 
   return {
     fontUrl: weightedRandomFont(),
     faceColor: colors[0],
-    sideColor: colors[1],
+    faceMaterial: randomChoice(FACE_MATERIALS),
+    sideColor1: colors[1],
+    sideColor2: colors[2],
+    edgeColor: colors[3],
+    edgeColorEnabled: Math.random() < 0.5,
     depth: randomRange(0.25, 0.5),
     bevelEnabled: true,
-    bevelThickness: randomRange(0.02, 0.05),
-    bevelSize: randomRange(0.02, 0.04),
+    bevelThickness: randomRange(0.04, 0.08),
+    bevelSize: randomRange(0.04, 0.07),
     metalness: randomRange(0.6, 0.9),
     roughness: randomRange(0.1, 0.3),
   };
@@ -179,8 +183,8 @@ function randomizeLight(): LightConfig {
 
   return {
     direction: randomChoice(directions),
-    intensity: randomRange(1.5, 2.5),
-    ambientIntensity: randomRange(0.4, 0.6),
+    intensity: randomRange(0.1, 0.3),
+    ambientIntensity: randomRange(0.1, 0.3),
   };
 }
 

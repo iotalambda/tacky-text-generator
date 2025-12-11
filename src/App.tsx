@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { Scene } from './Scene';
-import type { SceneHandle } from './Scene';
+import type { SceneHandle, ScreenBounds } from './Scene';
 import type { TextConfig } from './types';
 import { randomizeTextConfig } from './randomizer';
 import { captureGif, downloadBlob } from './GifCapture';
@@ -13,11 +13,13 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(0);
+  const [screenBounds, setScreenBounds] = useState<ScreenBounds | null>(null);
   const sceneRef = useRef<SceneHandle>(null);
 
   const handleGenerate = useCallback(() => {
     if (!inputText.trim()) return;
     setIsGenerating(true);
+    setScreenBounds(null); // Reset bounds when generating new config
 
     // Small delay to show loading state
     setTimeout(() => {
@@ -27,7 +29,7 @@ function App() {
     }, 100);
   }, [inputText]);
 
-  const handleExportGif = useCallback(async () => {
+  const handleExportGif = useCallback(async (targetWidth: number) => {
     const canvas = sceneRef.current?.getCanvas();
     if (!canvas || !config) return;
 
@@ -40,15 +42,17 @@ function App() {
     // Wait a frame for the clock reset to take effect
     await new Promise(resolve => requestAnimationFrame(resolve));
 
+    const screenBounds = sceneRef.current?.getScreenBounds();
+
     // GIF capture options - good quality, transparent background via chroma key
     const options: GifCaptureOptions = {
-      width: 480, // Max resolution
-      height: 480, // Max resolution (actual size depends on bounds aspect ratio)
+      width: targetWidth,
+      height: targetWidth, // Will be adjusted by aspect ratio in captureGif
       fps: 20, // Not used directly, kept for reference
-      quality: 10, // Good quality (1-30, lower = better)
+      quality: 20, // Balanced quality/size (1-30, lower = better quality but larger)
       getAnimationT: () => sceneRef.current?.getAnimationT() ?? 0,
       cycleDuration: config.animation.cycleDuration, // Pass cycle duration for correct timing
-      screenBounds: sceneRef.current?.getScreenBounds(), // Crop to calibrated bounds
+      screenBounds, // Crop to calibrated bounds
     };
 
     try {
@@ -73,11 +77,25 @@ function App() {
     }
   }, [config]);
 
+  // Calculate output dimensions based on screen bounds aspect ratio
+  const getOutputDimensions = useCallback((targetWidth: number) => {
+    if (!screenBounds) return { width: targetWidth, height: targetWidth };
+
+    const boundsWidth = screenBounds.maxX - screenBounds.minX;
+    const boundsHeight = screenBounds.maxY - screenBounds.minY;
+    const aspectRatio = boundsWidth / boundsHeight;
+
+    const height = Math.round(targetWidth / aspectRatio);
+    return { width: targetWidth, height };
+  }, [screenBounds]);
+
+  // Calibration is in progress if we have a config but no bounds yet
+  const isCalibrating = config !== null && screenBounds === null;
+
   return (
     <div className="app">
       <header className="header">
         <h1>Tacky 3D Text Generator</h1>
-        <p>Create glorious WordArt-style animated GIFs!</p>
       </header>
 
       <main className="main">
@@ -97,23 +115,37 @@ function App() {
             <button
               className="btn btn-primary"
               onClick={handleGenerate}
-              disabled={isGenerating || !inputText.trim()}
+              disabled={isGenerating || isCapturing || !inputText.trim()}
             >
               {isGenerating ? 'Generating...' : 'Generate!'}
             </button>
-
-            {config && (
-              <button
-                className="btn btn-secondary"
-                onClick={handleExportGif}
-                disabled={isCapturing}
-              >
-                {isCapturing
-                  ? `Capturing... ${Math.round(captureProgress * 100)}%`
-                  : 'Export GIF'}
-              </button>
-            )}
           </div>
+
+          {config && (
+            <div className="export-group">
+              {isCapturing ? (
+                <div className="capture-progress">
+                  Capturing...<br />
+                  {Math.round(captureProgress * 100)}%
+                </div>
+              ) : (
+                [320, 640, 1280].map((width) => {
+                  const dims = getOutputDimensions(width);
+                  return (
+                    <button
+                      key={width}
+                      className="btn btn-secondary btn-export"
+                      onClick={() => handleExportGif(width)}
+                      disabled={isCapturing || isCalibrating}
+                    >
+                      Export GIF<br />
+                      {dims.width}px × {screenBounds ? `${dims.height}px` : '?px'}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
 
           {config && (
             <div className="config-info">
@@ -126,7 +158,10 @@ function App() {
                   Face: <span className="color-swatch" style={{ backgroundColor: config.style.faceColor }} /> {config.style.faceColor}
                 </li>
                 <li>
-                  Sides: <span className="color-swatch" style={{ backgroundColor: config.style.sideColor }} /> {config.style.sideColor}
+                  Sides: <span className="color-swatch" style={{ backgroundColor: config.style.sideColor1 }} /> <span className="color-swatch" style={{ backgroundColor: config.style.sideColor2 }} /> {config.style.sideColor1} / {config.style.sideColor2}
+                </li>
+                <li style={{ textDecoration: config.style.edgeColorEnabled ? 'none' : 'line-through', opacity: config.style.edgeColorEnabled ? 1 : 0.5 }}>
+                  Edge: <span className="color-swatch" style={{ backgroundColor: config.style.edgeColor }} /> {config.style.edgeColor}
                 </li>
                 <li>Cycle: {config.animation.cycleDuration.toFixed(1)}s</li>
               </ul>
@@ -135,7 +170,7 @@ function App() {
         </div>
 
         <div className="preview">
-          <Scene ref={sceneRef} config={config} />
+          <Scene ref={sceneRef} config={config} onCalibrationComplete={setScreenBounds} />
         </div>
       </main>
     </div>

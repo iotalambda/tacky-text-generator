@@ -36,7 +36,7 @@
 }
 
 .controls {
-  width: 300px;
+  width: 400px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -108,6 +108,34 @@
 .btn-secondary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(56, 239, 125, 0.4);
+}
+
+.export-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-export {
+  flex: 1;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.capture-progress {
+  flex: 1;
+  padding: 0.5rem 0.25rem;
+  background: #333;
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .config-info {

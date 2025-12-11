@@ -44,9 +44,10 @@ function App() {
     const options: GifCaptureOptions = {
       width: 480, // Max resolution
       height: 480, // Max resolution (actual size depends on bounds aspect ratio)
-      fps: 20, // Smooth animation
+      fps: 20, // Not used directly, kept for reference
       quality: 10, // Good quality (1-30, lower = better)
       getAnimationT: () => sceneRef.current?.getAnimationT() ?? 0,
+      cycleDuration: config.animation.cycleDuration, // Pass cycle duration for correct timing
       screenBounds: sceneRef.current?.getScreenBounds(), // Crop to calibrated bounds
     };
 

@@ -4,9 +4,10 @@ import type { ScreenBounds } from './Scene';
 export interface GifCaptureOptions {
   width: number;
   height: number;
-  fps: number;
+  fps: number; // Target fps (used to calculate frame delay from cycle duration)
   quality: number; // 1-30, lower is better quality but larger file
   getAnimationT: () => number; // Function to get current animation progress (0-1)
+  cycleDuration: number; // Animation cycle duration in seconds
   screenBounds?: ScreenBounds | null; // Optional screen bounds for cropping
 }
 
@@ -34,9 +35,7 @@ export async function captureGif(
   options: GifCaptureOptions,
   onProgress?: (progress: number) => void
 ): Promise<Blob> {
-  const { width, height, fps, quality, getAnimationT, screenBounds } = options;
-
-  const frameDelay = Math.round(1000 / fps);
+  const { width, height, quality, getAnimationT, cycleDuration, screenBounds } = options;
 
   // Calculate crop region from screen bounds (if provided)
   // screenBounds are in normalized 0-1 coordinates
@@ -93,6 +92,10 @@ export async function captureGif(
       previousT = currentT;
 
       if (cycleCompleted) {
+        // Calculate frame delay based on cycle duration and number of frames captured
+        // This ensures GIF plays at the same speed as the preview
+        const frameDelay = Math.round((cycleDuration * 1000) / frames.length);
+
         // Cycle complete - now render the GIF with collected frames
         const gif = new GIF({
           workers: 2,

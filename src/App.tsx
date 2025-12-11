@@ -117,10 +117,14 @@ function App() {
             <div className="config-info">
               <h3>Current Style:</h3>
               <ul>
+                <li>Font: {config.style.fontUrl.split('/').pop()?.replace('.json', '').replace(/-/g, ' ')}</li>
                 <li>Animation: {config.animation.type}</li>
-                <li>Face: {config.style.faceColor}</li>
-                <li>Sides: {config.style.sideColor}</li>
-                <li>Depth: {config.style.depth.toFixed(2)}</li>
+                <li>
+                  Face: <span className="color-swatch" style={{ backgroundColor: config.style.faceColor }} /> {config.style.faceColor}
+                </li>
+                <li>
+                  Sides: <span className="color-swatch" style={{ backgroundColor: config.style.sideColor }} /> {config.style.sideColor}
+                </li>
                 <li>Cycle: {config.animation.cycleDuration.toFixed(1)}s</li>
               </ul>
             </div>

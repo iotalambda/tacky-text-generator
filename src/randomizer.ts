@@ -19,13 +19,31 @@ const COLOR_SCHEMES: [string, string][] = [
   ['#1E90FF', '#FF4500'], // Dodger Blue / OrangeRed
 ];
 
-// Tacky WordArt-style fonts from Three.js examples
-const FONT_URLS = [
-  'https://cdn.jsdelivr.net/npm/three@0.182.0/examples/fonts/helvetiker_bold.typeface.json',
-  'https://cdn.jsdelivr.net/npm/three@0.182.0/examples/fonts/optimer_bold.typeface.json',
-  'https://cdn.jsdelivr.net/npm/three@0.182.0/examples/fonts/gentilis_bold.typeface.json',
-  'https://cdn.jsdelivr.net/npm/three@0.182.0/examples/fonts/droid/droid_serif_bold.typeface.json',
+// Fonts with weights for weighted random selection
+// Higher weight = more likely to be picked
+const WEIGHTED_FONTS: { url: string; weight: number }[] = [
+  { url: '/fonts/Oswald-Bold.json', weight: 93 },           // Arial Black alternative
+  { url: '/fonts/Anton-Regular.json', weight: 89 },         // Impact alternative
+  { url: '/fonts/ComicNeue-Bold.json', weight: 77 },        // Comic Sans alternative
+  { url: '/fonts/AlfaSlabOne-Regular.json', weight: 64 },   // Cooper Black alternative
+  { url: '/fonts/PlayfairDisplay-Bold.json', weight: 52 },  // Times New Roman Bold alternative
+  { url: '/fonts/OpenSans-Bold.json', weight: 39 },         // Verdana Bold alternative
+  { url: '/fonts/Lora-Bold.json', weight: 27 },             // Bookman alternative
 ];
+
+function weightedRandomFont(): string {
+  const totalWeight = WEIGHTED_FONTS.reduce((sum, f) => sum + f.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (const font of WEIGHTED_FONTS) {
+    random -= font.weight;
+    if (random <= 0) {
+      return font.url;
+    }
+  }
+
+  return WEIGHTED_FONTS[0].url; // Fallback
+}
 
 // Animation types - includes full spins and oscillations
 const ANIMATION_TYPES: AnimationType[] = [
@@ -51,7 +69,7 @@ function randomizeStyle(): TextStyle {
   const colors = randomChoice(COLOR_SCHEMES);
 
   return {
-    fontUrl: randomChoice(FONT_URLS),
+    fontUrl: weightedRandomFont(),
     faceColor: colors[0],
     sideColor: colors[1],
     depth: randomRange(0.25, 0.5),

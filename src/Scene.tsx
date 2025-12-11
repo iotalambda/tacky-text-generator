@@ -204,34 +204,34 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
         applyAnimationTransform(group, config, t);
         group.updateMatrixWorld(true);
 
-        // Get bounding box and project corners to screen space
-        const box = new THREE.Box3().setFromObject(group);
-        if (!box.isEmpty()) {
-          const corners = [
-            new THREE.Vector3(box.min.x, box.min.y, box.min.z),
-            new THREE.Vector3(box.min.x, box.min.y, box.max.z),
-            new THREE.Vector3(box.min.x, box.max.y, box.min.z),
-            new THREE.Vector3(box.min.x, box.max.y, box.max.z),
-            new THREE.Vector3(box.max.x, box.min.y, box.min.z),
-            new THREE.Vector3(box.max.x, box.min.y, box.max.z),
-            new THREE.Vector3(box.max.x, box.max.y, box.min.z),
-            new THREE.Vector3(box.max.x, box.max.y, box.max.z),
-          ];
+        // Project actual mesh vertices to get tight screen bounds
+        // This avoids the AABB inflation issue when text is rotated
+        group.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            const geometry = child.geometry;
+            const positionAttr = geometry.getAttribute('position');
+            if (positionAttr) {
+              const vertex = new THREE.Vector3();
+              // Sample vertices (every 10th to keep it fast, but still accurate)
+              for (let i = 0; i < positionAttr.count; i += 10) {
+                vertex.fromBufferAttribute(positionAttr, i);
+                // Transform vertex to world space
+                vertex.applyMatrix4(child.matrixWorld);
+                // Project to screen space
+                vertex.project(cam);
+                // Convert to 0-1 screen space (0,0 is top-left)
+                const screenX = (vertex.x + 1) / 2;
+                const screenY = (1 - vertex.y) / 2;
 
-          for (const corner of corners) {
-            // Project to normalized device coordinates (-1 to 1)
-            corner.project(cam);
-            // Convert to 0-1 screen space (0,0 is top-left)
-            const screenX = (corner.x + 1) / 2;
-            const screenY = (1 - corner.y) / 2; // Flip Y for screen coords
-
-            // Update bounds
-            cal.screenBounds.minX = Math.min(cal.screenBounds.minX, screenX);
-            cal.screenBounds.maxX = Math.max(cal.screenBounds.maxX, screenX);
-            cal.screenBounds.minY = Math.min(cal.screenBounds.minY, screenY);
-            cal.screenBounds.maxY = Math.max(cal.screenBounds.maxY, screenY);
+                // Update bounds
+                cal.screenBounds.minX = Math.min(cal.screenBounds.minX, screenX);
+                cal.screenBounds.maxX = Math.max(cal.screenBounds.maxX, screenX);
+                cal.screenBounds.minY = Math.min(cal.screenBounds.minY, screenY);
+                cal.screenBounds.maxY = Math.max(cal.screenBounds.maxY, screenY);
+              }
+            }
           }
-        }
+        });
 
         cal.animationStep++;
 

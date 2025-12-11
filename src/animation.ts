@@ -13,49 +13,78 @@ export function applyAnimationTransform(
   group.scale.setScalar(1);
 
   const amp = config.animation.amplitude;
+  const initialAngle = config.animation.initialAngle;
   const TWO_PI = Math.PI * 2;
 
-  switch (config.animation.type) {
-    case 'spinY':
-      // Full 360° rotation around Y axis
-      group.rotation.y = t * TWO_PI;
-      break;
+  // For spin animations: apply initial angle AFTER the animation (animation in rotated space)
+  // For other animations: apply initial angle BEFORE the animation (animation in viewer space)
+  // This is achieved by using quaternion composition
 
-    case 'spinX':
-      // Full 360° rotation around X axis
-      group.rotation.x = t * TWO_PI;
-      break;
+  const animationType = config.animation.type;
+  // Animations where the animation happens in the rotated space (around the tilted axis)
+  const isRotatedSpaceAnimation = ['spinY', 'spinX', 'spinZ', 'swingY', 'swingX', 'swingZ'].includes(animationType);
 
-    case 'spinZ':
-      // Full 360° rotation around Z axis
-      group.rotation.z = t * TWO_PI;
-      break;
+  if (isRotatedSpaceAnimation) {
+    // Spin and swing animations: animate first, then apply initial angle
+    // The animation happens around the object's local axes, then we rotate the whole thing
+    // Use quaternions for proper rotation composition
 
-    case 'swingY':
-      // Oscillate around Y axis (uses sin for smooth back-and-forth)
-      group.rotation.y = Math.sin(t * TWO_PI) * amp;
-      break;
-
-    case 'swingX':
-      // Oscillate around X axis
-      group.rotation.x = Math.sin(t * TWO_PI) * amp;
-      break;
-
-    case 'swingZ':
-      // Oscillate around Z axis
-      group.rotation.z = Math.sin(t * TWO_PI) * amp;
-      break;
-
-    case 'bounce':
-      // Bounce up and down (abs of sin for bounce effect)
-      group.position.y = Math.abs(Math.sin(t * TWO_PI)) * amp;
-      break;
-
-    case 'pulse': {
-      // Scale pulse
-      const scale = 1 + Math.sin(t * TWO_PI) * amp;
-      group.scale.setScalar(scale);
-      break;
+    // First create the animation rotation
+    const animQuat = new THREE.Quaternion();
+    switch (animationType) {
+      case 'spinY':
+        animQuat.setFromEuler(new THREE.Euler(0, t * TWO_PI, 0, 'XYZ'));
+        break;
+      case 'spinX':
+        animQuat.setFromEuler(new THREE.Euler(t * TWO_PI, 0, 0, 'XYZ'));
+        break;
+      case 'spinZ':
+        animQuat.setFromEuler(new THREE.Euler(0, 0, t * TWO_PI, 'XYZ'));
+        break;
+      case 'swingY':
+        animQuat.setFromEuler(new THREE.Euler(0, Math.sin(t * TWO_PI) * amp, 0, 'XYZ'));
+        break;
+      case 'swingX':
+        animQuat.setFromEuler(new THREE.Euler(Math.sin(t * TWO_PI) * amp, 0, 0, 'XYZ'));
+        break;
+      case 'swingZ':
+        animQuat.setFromEuler(new THREE.Euler(0, 0, Math.sin(t * TWO_PI) * amp, 'XYZ'));
+        break;
     }
+
+    // Then create the initial angle rotation
+    const initialQuat = new THREE.Quaternion();
+    initialQuat.setFromEuler(new THREE.Euler(initialAngle.x, initialAngle.y, 0, 'XYZ'));
+
+    // Compose: initial angle first, then animation on top
+    // finalQuat = initialQuat * animQuat (rotate by initial, then animate in that rotated space)
+    const finalQuat = new THREE.Quaternion();
+    finalQuat.multiplyQuaternions(initialQuat, animQuat);
+
+    group.quaternion.copy(finalQuat);
+  } else {
+    // Bounce and pulse: apply initial angle first, then animate in viewer space
+    // We need to use quaternions to compose the rotations properly
+
+    // Start with the initial angle orientation
+    const initialQuat = new THREE.Quaternion();
+    initialQuat.setFromEuler(new THREE.Euler(initialAngle.x, initialAngle.y, 0, 'XYZ'));
+
+    switch (animationType) {
+      case 'bounce':
+        // Bounce up and down in viewer space (Y position)
+        group.position.y = Math.abs(Math.sin(t * TWO_PI)) * amp;
+        break;
+
+      case 'pulse': {
+        // Scale pulse (no rotation needed)
+        const scale = 1 + Math.sin(t * TWO_PI) * amp;
+        group.scale.setScalar(scale);
+        break;
+      }
+    }
+
+    // Apply the initial angle orientation
+    group.quaternion.copy(initialQuat);
   }
 }

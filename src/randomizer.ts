@@ -45,6 +45,41 @@ function weightedRandomFont(): string {
   return WEIGHTED_FONTS[0].url; // Fallback
 }
 
+// Initial angle weights - adjust these to tune the experience
+// Each entry: { angle: [xDeg, yDeg], weight }
+const INITIAL_ANGLE_WEIGHT_STRAIGHT = 100;  // Facing viewer directly
+const INITIAL_ANGLE_WEIGHT_CARDINAL = 40;   // 20° up, down, left, right
+const INITIAL_ANGLE_WEIGHT_DIAGONAL = 20;   // 30° to corners (bl, tl, br, tr)
+
+const WEIGHTED_INITIAL_ANGLES: { angle: { x: number; y: number }; weight: number }[] = [
+  // Straight at viewer
+  { angle: { x: 0, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_STRAIGHT },
+  // Cardinal directions (20 degrees)
+  { angle: { x: -20 * Math.PI / 180, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },  // Up
+  { angle: { x: 20 * Math.PI / 180, y: 0 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },   // Down
+  { angle: { x: 0, y: -20 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },  // Left
+  { angle: { x: 0, y: 20 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_CARDINAL },   // Right
+  // Diagonal directions (30 degrees)
+  { angle: { x: -30 * Math.PI / 180, y: -30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL }, // Top-left
+  { angle: { x: -30 * Math.PI / 180, y: 30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },  // Top-right
+  { angle: { x: 30 * Math.PI / 180, y: -30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },  // Bottom-left
+  { angle: { x: 30 * Math.PI / 180, y: 30 * Math.PI / 180 }, weight: INITIAL_ANGLE_WEIGHT_DIAGONAL },   // Bottom-right
+];
+
+function weightedRandomInitialAngle(): { x: number; y: number } {
+  const totalWeight = WEIGHTED_INITIAL_ANGLES.reduce((sum, a) => sum + a.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (const entry of WEIGHTED_INITIAL_ANGLES) {
+    random -= entry.weight;
+    if (random <= 0) {
+      return { ...entry.angle };
+    }
+  }
+
+  return { x: 0, y: 0 }; // Fallback
+}
+
 // Animation types - includes full spins and oscillations
 const ANIMATION_TYPES: AnimationType[] = [
   'spinY',    // Full 360° rotation around Y axis
@@ -120,6 +155,7 @@ function randomizeAnimation(): AnimationConfig {
     type,
     amplitude,
     cycleDuration,
+    initialAngle: weightedRandomInitialAngle(),
   };
 }
 

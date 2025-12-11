@@ -121,6 +121,7 @@ function App() {
               <ul>
                 <li>Font: {config.style.fontUrl.split('/').pop()?.replace('.json', '').replace(/-/g, ' ')}</li>
                 <li>Animation: {config.animation.type}</li>
+                <li>Initial angle: {Math.round(config.animation.initialAngle.x * 180 / Math.PI)}°, {Math.round(config.animation.initialAngle.y * 180 / Math.PI)}°</li>
                 <li>
                   Face: <span className="color-swatch" style={{ backgroundColor: config.style.faceColor }} /> {config.style.faceColor}
                 </li>

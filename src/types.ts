@@ -24,6 +24,7 @@ export interface AnimationConfig {
   type: AnimationType;
   amplitude: number; // Max rotation in radians for swing, or scale factor for pulse
   cycleDuration: number; // Duration of one complete cycle in seconds
+  initialAngle: { x: number; y: number }; // Initial rotation offset in radians (applied to spin/pulse only)
 }
 
 export interface CameraConfig {

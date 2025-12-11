@@ -10,10 +10,19 @@ interface SceneProps {
   config: TextConfig | null;
 }
 
+// Screen-space bounding box (normalized 0-1 coordinates)
+export interface ScreenBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
 export interface SceneHandle {
   getCanvas: () => HTMLCanvasElement | null;
   resetClock: () => void;
   getAnimationT: () => number; // Get current animation progress (0-1)
+  getScreenBounds: () => ScreenBounds | null; // Get calibrated screen bounds
 }
 
 interface ClockControllerProps {
@@ -49,22 +58,26 @@ function ClockController({ cycleDuration, onMount }: ClockControllerProps) {
 
 // Show visible calibration in development mode
 const SHOW_CALIBRATION = import.meta.env.DEV && import.meta.env.VITE_SHOW_CALIBRATION === 'true';
+const SHOW_BOUNDING_BOX = import.meta.env.DEV && import.meta.env.VITE_SHOW_BOUNDING_BOX === 'true';
 
 interface CameraCalibratorProps {
   config: TextConfig;
   textGroupRef: React.RefObject<THREE.Group | null>;
-  onCalibrated: (cameraZ: number) => void;
+  onCalibrated: (cameraZ: number, screenBounds: ScreenBounds) => void;
 }
 
 // Calibrates camera distance by running through animation and checking bounds
 function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibratorProps) {
   const calibrationRef = useRef({
-    phase: 'waiting' as 'waiting' | 'calibrating' | 'done',
+    phase: 'waiting' as 'waiting' | 'calibrating' | 'bounds' | 'done',
     currentZ: 3, // Start close
     maxZ: 20, // Don't go further than this
     stepSize: 0.3,
     stepsPerCycle: 24, // Check this many animation positions per camera distance
     animationStep: 0, // Current animation step being checked
+    // Screen bounds tracking (accumulated across all animation frames)
+    screenBounds: { minX: 1, maxX: 0, minY: 1, maxY: 0 } as ScreenBounds,
+    finalZ: 3, // Store final camera Z for bounds pass
   });
 
   useFrame((state) => {
@@ -144,12 +157,14 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
           }
 
           if (cal.currentZ >= cal.maxZ) {
-            cal.phase = 'done';
-            state.clock.elapsedTime = 0;
+            // Max reached, move to bounds calculation phase
+            cal.finalZ = cal.maxZ;
+            cal.phase = 'bounds';
+            cal.animationStep = 0;
+            cal.screenBounds = { minX: 1, maxX: 0, minY: 1, maxY: 0 };
             if (SHOW_CALIBRATION) {
-              console.log('Calibration complete (max reached):', cal.maxZ);
+              console.log('Camera calibration complete (max reached):', cal.maxZ, '- calculating bounds');
             }
-            onCalibrated(cal.maxZ);
             return;
           }
         } else {
@@ -157,15 +172,88 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
           cal.animationStep++;
 
           if (cal.animationStep >= cal.stepsPerCycle) {
-            // All steps passed! Calibration complete
-            cal.phase = 'done';
-            state.clock.elapsedTime = 0;
+            // All steps passed! Move to bounds calculation phase
+            cal.finalZ = cal.currentZ;
+            cal.phase = 'bounds';
+            cal.animationStep = 0;
+            cal.screenBounds = { minX: 1, maxX: 0, minY: 1, maxY: 0 };
             if (SHOW_CALIBRATION) {
-              console.log('Calibration complete:', cal.currentZ);
+              console.log('Camera calibration complete:', cal.currentZ, '- calculating bounds');
             }
-            onCalibrated(cal.currentZ);
             return;
           }
+        }
+      }
+    }
+
+    // Phase 3: Calculate screen-space bounds at final camera position
+    if (cal.phase === 'bounds') {
+      const stepsPerFrame = SHOW_CALIBRATION ? 1 : 10;
+      let stepsThisFrame = 0;
+
+      while (stepsThisFrame < stepsPerFrame && cal.phase === 'bounds') {
+        stepsThisFrame++;
+
+        // Position camera at final Z
+        cam.position.z = cal.finalZ;
+        cam.updateMatrixWorld();
+        cam.updateProjectionMatrix();
+
+        // Apply animation transform for current step
+        const t = cal.animationStep / cal.stepsPerCycle;
+        applyAnimationTransform(group, config, t);
+        group.updateMatrixWorld(true);
+
+        // Get bounding box and project corners to screen space
+        const box = new THREE.Box3().setFromObject(group);
+        if (!box.isEmpty()) {
+          const corners = [
+            new THREE.Vector3(box.min.x, box.min.y, box.min.z),
+            new THREE.Vector3(box.min.x, box.min.y, box.max.z),
+            new THREE.Vector3(box.min.x, box.max.y, box.min.z),
+            new THREE.Vector3(box.min.x, box.max.y, box.max.z),
+            new THREE.Vector3(box.max.x, box.min.y, box.min.z),
+            new THREE.Vector3(box.max.x, box.min.y, box.max.z),
+            new THREE.Vector3(box.max.x, box.max.y, box.min.z),
+            new THREE.Vector3(box.max.x, box.max.y, box.max.z),
+          ];
+
+          for (const corner of corners) {
+            // Project to normalized device coordinates (-1 to 1)
+            corner.project(cam);
+            // Convert to 0-1 screen space (0,0 is top-left)
+            const screenX = (corner.x + 1) / 2;
+            const screenY = (1 - corner.y) / 2; // Flip Y for screen coords
+
+            // Update bounds
+            cal.screenBounds.minX = Math.min(cal.screenBounds.minX, screenX);
+            cal.screenBounds.maxX = Math.max(cal.screenBounds.maxX, screenX);
+            cal.screenBounds.minY = Math.min(cal.screenBounds.minY, screenY);
+            cal.screenBounds.maxY = Math.max(cal.screenBounds.maxY, screenY);
+          }
+        }
+
+        cal.animationStep++;
+
+        if (cal.animationStep >= cal.stepsPerCycle) {
+          // Bounds calculation complete!
+          cal.phase = 'done';
+          state.clock.elapsedTime = 0;
+
+          // Add a small padding to bounds (2%)
+          const padding = 0.02;
+          const bounds: ScreenBounds = {
+            minX: Math.max(0, cal.screenBounds.minX - padding),
+            maxX: Math.min(1, cal.screenBounds.maxX + padding),
+            minY: Math.max(0, cal.screenBounds.minY - padding),
+            maxY: Math.min(1, cal.screenBounds.maxY + padding),
+          };
+
+          if (SHOW_CALIBRATION) {
+            console.log('Bounds calibration complete:', bounds);
+          }
+          onCalibrated(cal.finalZ, bounds);
+          return;
         }
       }
     }
@@ -179,7 +267,7 @@ interface SceneContentProps {
   config: TextConfig;
   configKey: string; // Unique key to force re-mount when config changes
   onClockMount: (fns: { reset: () => void; getT: () => number }) => void;
-  onCalibrationComplete: () => void;
+  onCalibrationComplete: (bounds: ScreenBounds) => void;
 }
 
 // Component to apply calibrated camera position
@@ -194,9 +282,9 @@ function SceneContent({ config, onClockMount, onCalibrationComplete }: SceneCont
   const textGroupRef = useRef<THREE.Group>(null);
   const [calibratedZ, setCalibratedZ] = useState<number | null>(null);
 
-  const handleCalibrated = (z: number) => {
+  const handleCalibrated = (z: number, bounds: ScreenBounds) => {
     setCalibratedZ(z);
-    onCalibrationComplete();
+    onCalibrationComplete(bounds);
   };
 
   return (
@@ -260,13 +348,34 @@ function LoadingOverlay() {
   );
 }
 
+// Debug overlay showing the calibrated bounding box
+function BoundingBoxOverlay({ bounds }: { bounds: ScreenBounds }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: `${bounds.minX * 100}%`,
+        top: `${bounds.minY * 100}%`,
+        width: `${(bounds.maxX - bounds.minX) * 100}%`,
+        height: `${(bounds.maxY - bounds.minY) * 100}%`,
+        border: '2px solid rgba(128, 128, 128, 0.8)',
+        backgroundColor: 'rgba(128, 128, 128, 0.1)',
+        pointerEvents: 'none',
+        zIndex: 5,
+      }}
+    />
+  );
+}
+
 export const Scene = forwardRef<SceneHandle, SceneProps>(({ config }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const clockFnsRef = useRef<{ reset: () => void; getT: () => number } | null>(null);
+  const screenBoundsRef = useRef<ScreenBounds | null>(null);
 
   // Track which config we've completed calibration for
   const configKey = config ? JSON.stringify(config) : null;
   const [calibratedConfigKey, setCalibratedConfigKey] = useState<string | null>(null);
+  const [displayBounds, setDisplayBounds] = useState<ScreenBounds | null>(null);
 
   // We're calibrating if we have a config but haven't completed calibration for this specific config
   const isCalibrating = configKey !== null && calibratedConfigKey !== configKey;
@@ -275,6 +384,7 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(({ config }, ref) => {
     getCanvas: () => canvasRef.current,
     resetClock: () => clockFnsRef.current?.reset(),
     getAnimationT: () => clockFnsRef.current?.getT() ?? 0,
+    getScreenBounds: () => screenBoundsRef.current,
   }));
 
   if (!config) {
@@ -311,9 +421,16 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(({ config }, ref) => {
           config={config}
           configKey={JSON.stringify(config)}
           onClockMount={(fns) => { clockFnsRef.current = fns; }}
-          onCalibrationComplete={() => setCalibratedConfigKey(configKey)}
+          onCalibrationComplete={(bounds) => {
+            screenBoundsRef.current = bounds;
+            setDisplayBounds(bounds);
+            setCalibratedConfigKey(configKey);
+          }}
         />
       </Canvas>
+
+      {/* Debug overlay showing calibrated bounding box */}
+      {SHOW_BOUNDING_BOX && displayBounds && <BoundingBoxOverlay bounds={displayBounds} />}
     </div>
   );
 });

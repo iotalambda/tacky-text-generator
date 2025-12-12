@@ -6,6 +6,32 @@ export function isPerCharacterAnimation(type: string): boolean {
   return type === 'wave';
 }
 
+/**
+ * Calculates a 180° flip offset for spin animations to keep text readable.
+ * When the text rotates to face away from the viewer (90° to 270° range),
+ * we add a 180° flip so the text appears "correct" from the viewer's perspective.
+ *
+ * @param animationAngle - The current animation rotation angle (0 to 2π)
+ * @param initialAngle - The initial angle offset for the relevant axis
+ * @returns 0 or π (180°) flip offset
+ */
+function getFlipOffset(animationAngle: number, initialAngle: number): number {
+  const TWO_PI = Math.PI * 2;
+  const HALF_PI = Math.PI / 2;
+
+  // Calculate total rotation, normalized to 0-2π range
+  let totalAngle = (animationAngle + initialAngle) % TWO_PI;
+  if (totalAngle < 0) totalAngle += TWO_PI;
+
+  // Text faces away from viewer when total rotation is between π/2 (90°) and 3π/2 (270°)
+  // In this range, add a 180° flip to keep it readable
+  if (totalAngle > HALF_PI && totalAngle < HALF_PI * 3) {
+    return Math.PI;
+  }
+
+  return 0;
+}
+
 // Get Y offset for a character in wave animation
 export function getWaveOffset(
   charIndex: number,
@@ -53,13 +79,23 @@ export function applyAnimationTransform(
     // First create the animation rotation
     const animQuat = new THREE.Quaternion();
     switch (animationType) {
-      case 'spinY':
-        animQuat.setFromEuler(new THREE.Euler(0, t * TWO_PI, 0, 'XYZ'));
+      case 'spinY': {
+        // For Y spin: add 180° to Y when text would face away
+        // This makes the text appear to continue rotating smoothly while staying readable
+        const animAngle = t * TWO_PI;
+        const flipOffset = getFlipOffset(animAngle, initialAngle.y);
+        animQuat.setFromEuler(new THREE.Euler(0, animAngle + flipOffset, 0, 'XYZ'));
         break;
-      case 'spinX':
-        animQuat.setFromEuler(new THREE.Euler(t * TWO_PI, 0, 0, 'XYZ'));
+      }
+      case 'spinX': {
+        // For X spin: add 180° to X when text would face away
+        const animAngle = t * TWO_PI;
+        const flipOffset = getFlipOffset(animAngle, initialAngle.x);
+        animQuat.setFromEuler(new THREE.Euler(animAngle + flipOffset, 0, 0, 'XYZ'));
         break;
+      }
       case 'spinZ':
+        // Z rotation doesn't make text face away, no flip needed
         animQuat.setFromEuler(new THREE.Euler(0, 0, t * TWO_PI, 'XYZ'));
         break;
       case 'swingY':

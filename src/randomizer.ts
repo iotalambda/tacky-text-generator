@@ -1,23 +1,27 @@
 import type { TextConfig, TextStyle, AnimationConfig, AnimationType, CameraConfig, LightConfig, FaceMaterialType } from './types';
 
 // Neon color combinations [face, side1 (neon), side2 (different neon), edge (neon)]
+// chromaKey is always #000000 (black) - the dithering shader ensures text pixels never become pure black
 const COLOR_SCHEMES: [string, string, string, string][] = [
-  ['#FF00FF', '#00FF00', '#FFFF00', '#00FFFF'], // Magenta face / Green side1 / Yellow side2 / Cyan edge
-  ['#009700', '#FF00FF', '#009dff', '#FFFF00'], // Green face / Magenta side1 / Cyan side2 / Yellow edge
-  ['#FF6600', '#ff00a6', '#e5ff00', '#222222'], // Yellow face / Magenta side1 / Green side2 / Cyan edge
-  ['#0800ff', '#FF6600', '#FF00FF', '#00FF00'], // Cyan face / Orange side1 / Magenta side2 / Green edge
-  ['#FF6600', '#00ffff', '#FF00FF', '#222222'], // Orange face / Cyan side1 / Magenta side2 / Yellow edge
-  ['#FF0080', '#00FF80', '#FFFF00', '#00FFFF'], // Pink face / Mint side1 / Yellow side2 / Cyan edge
-  ['#22ff00', '#002aff', '#ff00aa', '#FFFF00'], // Mint face / Pink side1 / Cyan side2 / Yellow edge
-  ['#FF3300', '#00FFFF', '#00FF00', '#FF00FF'], // Red-Orange face / Cyan side1 / Green side2 / Magenta edge
-  ['#6c005d', '#FF0080', '#00FFFF', '#00FF00'], // Yellow face / Pink side1 / Cyan side2 / Green edge
-  ['#0800ff', '#FFFF00', '#FF00FF', '#00FF00'], // Cyan face / Yellow side1 / Magenta side2 / Green edge
-  ['#FF00FF', '#FFFF00', '#00FFFF', '#00FF00'], // Magenta face / Yellow side1 / Cyan side2 / Green edge
-  ['#00ff00', '#FF3300', '#002aff', '#FF00FF'], // Green face / Red side1 / Cyan side2 / Magenta edge
-  ['#FF0080', '#00FFFF', '#FFFF00', '#00FF00'], // Pink face / Cyan side1 / Yellow side2 / Green edge
-  ['#FF6600', '#00FF00', '#FFFF00', '#222222'], // Yellow face / Green side1 / Magenta side2 / Cyan edge
-  ['#0800ff', '#FF00FF', '#FFFF00', '#00FF00'], // Cyan face / Magenta side1 / Yellow side2 / Green edge
+  ['#FF00FF', '#00FF00', '#FFFF00', '#00FFFF'], // Magenta/Green/Yellow/Cyan
+  ['#009700', '#FF00FF', '#009dff', '#FFFF00'], // Green/Magenta/Cyan/Yellow
+  ['#FF6600', '#ff00a6', '#e5ff00', '#333333'], // Orange/Magenta/Yellow/Dark gray
+  ['#0800ff', '#FF6600', '#FF00FF', '#00FF00'], // Blue/Orange/Magenta/Green
+  ['#FF6600', '#00ffff', '#FF00FF', '#333333'], // Orange/Cyan/Magenta/Dark gray
+  ['#FF0080', '#00FF80', '#FFFF00', '#00FFFF'], // Pink/Mint/Yellow/Cyan
+  ['#22ff00', '#002aff', '#ff00aa', '#FFFF00'], // Mint/Blue/Pink/Yellow
+  ['#FF3300', '#00FFFF', '#00FF00', '#FF00FF'], // Red/Cyan/Green/Magenta
+  ['#6c005d', '#FF0080', '#00FFFF', '#00FF00'], // Purple/Pink/Cyan/Green
+  ['#0800ff', '#FFFF00', '#FF00FF', '#00FF00'], // Blue/Yellow/Magenta/Green
+  ['#FF00FF', '#FFFF00', '#00FFFF', '#00FF00'], // Magenta/Yellow/Cyan/Green
+  ['#00ff00', '#FF3300', '#002aff', '#FF00FF'], // Green/Red/Blue/Magenta
+  ['#FF0080', '#00FFFF', '#FFFF00', '#00FF00'], // Pink/Cyan/Yellow/Green
+  ['#FF6600', '#00FF00', '#FFFF00', '#333333'], // Orange/Green/Yellow/Dark gray
+  ['#0800ff', '#FF00FF', '#FFFF00', '#00FF00'], // Blue/Magenta/Yellow/Green
 ];
+
+// Transparent background color for GIF export
+const CHROMA_KEY = '#000000';
 
 // Fonts with weights for weighted random selection
 // Higher weight = more likely to be picked
@@ -112,6 +116,7 @@ function randomizeStyle(): TextStyle {
     sideColor2: colors[2],
     edgeColor: colors[3],
     edgeColorEnabled: Math.random() < 0.5,
+    chromaKey: CHROMA_KEY,
     depth: randomRange(0.25, 0.5),
     bevelEnabled: true,
     bevelThickness: randomRange(0.04, 0.08),

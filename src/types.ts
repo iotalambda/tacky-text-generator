@@ -22,6 +22,7 @@ export interface TextStyle {
   sideColor2: string; // Second side color (blends with sideColor1)
   edgeColor: string; // Color for the bevel edge between face and side
   edgeColorEnabled: boolean; // Whether edge coloring is used
+  chromaKey: string; // Background color used for GIF transparency (should be distinct from text colors)
   depth: number;
   bevelEnabled: boolean;
   bevelThickness: number;

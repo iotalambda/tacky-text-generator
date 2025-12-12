@@ -14,6 +14,8 @@ const DitherShader = {
     tDiffuse: { value: null },
     resolution: { value: new THREE.Vector2(1, 1) },
     colorLevels: { value: 8.0 }, // Number of color levels per channel
+    chromaKey: { value: new THREE.Color(0x000000) }, // Chroma key color to skip dithering
+    chromaThreshold: { value: 0.1 }, // Threshold for matching chroma key
   },
   vertexShader: `
     varying vec2 vUv;
@@ -26,6 +28,8 @@ const DitherShader = {
     uniform sampler2D tDiffuse;
     uniform vec2 resolution;
     uniform float colorLevels;
+    uniform vec3 chromaKey;
+    uniform float chromaThreshold;
 
     varying vec2 vUv;
 
@@ -52,8 +56,9 @@ const DitherShader = {
     void main() {
       vec4 color = texture2D(tDiffuse, vUv);
 
-      // Skip dithering for fully transparent pixels (black background)
-      if (color.r < 0.05 && color.g < 0.05 && color.b < 0.05) {
+      // Skip dithering for pixels matching the chroma key background
+      float chromaDist = distance(color.rgb, chromaKey);
+      if (chromaDist < chromaThreshold) {
         gl_FragColor = color;
         return;
       }
@@ -73,15 +78,21 @@ const DitherShader = {
       // Quantize to limited color palette
       vec3 quantized = floor(dithered * colorLevels + 0.5) / colorLevels;
 
-      // Clamp to valid range
-      quantized = clamp(quantized, 0.0, 1.0);
+      // Clamp to valid range, but ensure non-background pixels never become pure black
+      // Minimum of ~0.03 (about #080808) prevents text from being confused with transparent background
+      float minColor = 0.03;
+      quantized = clamp(quantized, minColor, 1.0);
 
       gl_FragColor = vec4(quantized, color.a);
     }
   `,
 };
 
-export function DitherEffect() {
+interface DitherEffectProps {
+  chromaKey: string;
+}
+
+export function DitherEffect({ chromaKey }: DitherEffectProps) {
   const { gl, scene, camera, size } = useThree();
 
   // Create the effect composer with dither pass
@@ -93,11 +104,13 @@ export function DitherEffect() {
     const ditherPass = new ShaderPass(DitherShader);
     ditherPass.uniforms.resolution.value.set(size.width, size.height);
     ditherPass.uniforms.colorLevels.value = 4.0; // Lower = rougher quantization (more visible dithering)
+    ditherPass.uniforms.chromaKey.value = new THREE.Color(chromaKey);
+    ditherPass.uniforms.chromaThreshold.value = 0.1;
     comp.addPass(ditherPass);
 
     comp.setSize(size.width, size.height);
     return comp;
-  }, [gl, scene, camera, size.width, size.height]);
+  }, [gl, scene, camera, size.width, size.height, chromaKey]);
 
   // Render with post-processing
   useFrame(() => {

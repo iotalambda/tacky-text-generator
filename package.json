@@ -13,7 +13,7 @@
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
     "@types/three": "^0.182.0",
-    "gif.js": "^0.2.0",
+    "omggif": "^1.0.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.182.0"

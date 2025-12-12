@@ -351,15 +351,15 @@ function SceneContent({ config, onClockMount, onCalibrationComplete }: SceneCont
       {/* 16 lights surrounding the text */}
       <SurroundingLights />
 
-      {/* Environment map for reflections */}
-      <Environment preset="lobby" />
+      {/* Environment map for reflections - background: false ensures it doesn't override our chroma key */}
+      <Environment preset="lobby" background={false} />
 
       <Suspense fallback={null}>
         <Text3DComponent groupRef={textGroupRef} config={config} />
       </Suspense>
 
-      {/* Dithering post-processing effect */}
-      <DitherEffect />
+      {/* Dithering post-processing effect - skip dithering on chroma key background */}
+      <DitherEffect chromaKey={config.style.chromaKey} />
     </>
   );
 }
@@ -450,10 +450,10 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(({ config, onCalibratio
           position: [0, 0, 3], // Start close, calibrator will adjust
           fov: config.camera.fov,
         }}
-        style={{ background: '#000000' }}
+        style={{ background: config.style.chromaKey }}
       >
-        {/* Black background for chroma key */}
-        <color attach="background" args={['#000000']} />
+        {/* Chroma key background - distinct from text colors for clean GIF transparency */}
+        <color attach="background" args={[config.style.chromaKey]} />
 
         <SceneContent
           key={JSON.stringify(config)}

@@ -53,6 +53,7 @@ function App() {
       getAnimationT: () => sceneRef.current?.getAnimationT() ?? 0,
       cycleDuration: config.animation.cycleDuration, // Pass cycle duration for correct timing
       screenBounds, // Crop to calibrated bounds
+      chromaKey: config.style.chromaKey, // Use the color scheme's chroma key for transparency
     };
 
     try {

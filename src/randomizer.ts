@@ -152,7 +152,6 @@ function weightedRandomInitialAngle(): { x: number; y: number } {
 const ANIMATION_TYPES: AnimationType[] = [
   'spinY',    // Full 360° rotation around Y axis
   'spinX',    // Full 360° rotation around X axis
-  'spinZ',    // Full 360° rotation around Z axis
   'swingY',   // Oscillate around Y axis
   'swingX',   // Oscillate around X axis
   'swingZ',   // Oscillate around Z axis
@@ -232,7 +231,6 @@ function randomizeAnimation(): AnimationConfig {
   switch (type) {
     case 'spinY':
     case 'spinX':
-    case 'spinZ':
       cycleDuration = randomRange(2.0, 4.0);
       amplitude = 1; // Not used for full spins, but kept for consistency
       break;

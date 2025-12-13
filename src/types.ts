@@ -1,7 +1,6 @@
 export type AnimationType =
   | 'spinY'        // Full 360° rotation around Y axis
   | 'spinX'        // Full 360° rotation around X axis
-  | 'spinZ'        // Full 360° rotation around Z axis
   | 'swingY'       // Oscillate around Y axis (pendulum)
   | 'swingX'       // Oscillate around X axis (nod)
   | 'swingZ'       // Oscillate around Z axis (tilt)

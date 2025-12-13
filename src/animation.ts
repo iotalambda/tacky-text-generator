@@ -69,7 +69,7 @@ export function applyAnimationTransform(
 
   const animationType = config.animation.type;
   // Animations where the animation happens in the rotated space (around the tilted axis)
-  const isRotatedSpaceAnimation = ['spinY', 'spinX', 'spinZ', 'swingY', 'swingX', 'swingZ'].includes(animationType);
+  const isRotatedSpaceAnimation = ['spinY', 'spinX', 'swingY', 'swingX', 'swingZ'].includes(animationType);
 
   if (isRotatedSpaceAnimation) {
     // Spin and swing animations: animate first, then apply initial angle
@@ -94,10 +94,6 @@ export function applyAnimationTransform(
         animQuat.setFromEuler(new THREE.Euler(animAngle + flipOffset, 0, 0, 'XYZ'));
         break;
       }
-      case 'spinZ':
-        // Z rotation doesn't make text face away, no flip needed
-        animQuat.setFromEuler(new THREE.Euler(0, 0, t * TWO_PI, 'XYZ'));
-        break;
       case 'swingY':
         animQuat.setFromEuler(new THREE.Euler(0, Math.sin(t * TWO_PI) * amp, 0, 'XYZ'));
         break;

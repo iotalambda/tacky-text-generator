@@ -1,8 +1,9 @@
-import type { TextConfig, TextStyle, AnimationConfig, AnimationType, CameraConfig, LightConfig, FaceMaterialType } from './types';
+import type { TextConfig, TextStyle, AnimationConfig, AnimationType, CameraConfig, LightConfig, FaceMaterialType, SideGradientType } from './types';
 
 // Neon color combinations [face, side1 (neon), side2 (different neon), edge (neon)]
 // chromaKey is always #000000 (black) - the dithering shader ensures text pixels never become pure black
 const COLOR_SCHEMES: [string, string, string, string][] = [
+  // Original schemes
   ['#FF00FF', '#00FF00', '#FFFF00', '#00FFFF'], // Magenta/Green/Yellow/Cyan
   ['#009700', '#FF00FF', '#009dff', '#FFFF00'], // Green/Magenta/Cyan/Yellow
   ['#FF6600', '#ff00a6', '#e5ff00', '#333333'], // Orange/Magenta/Yellow/Dark gray
@@ -18,6 +19,72 @@ const COLOR_SCHEMES: [string, string, string, string][] = [
   ['#FF0080', '#00FFFF', '#FFFF00', '#00FF00'], // Pink/Cyan/Yellow/Green
   ['#FF6600', '#00FF00', '#FFFF00', '#333333'], // Orange/Green/Yellow/Dark gray
   ['#0800ff', '#FF00FF', '#FFFF00', '#00FF00'], // Blue/Magenta/Yellow/Green
+
+  // Vaporwave / Synthwave
+  ['#FF6EC7', '#00FFFF', '#FF00FF', '#FFFF00'], // Hot pink/Cyan/Magenta/Yellow
+  ['#7B68EE', '#FF1493', '#00CED1', '#FFD700'], // Slate blue/Deep pink/Dark cyan/Gold
+  ['#DA70D6', '#40E0D0', '#FF69B4', '#98FB98'], // Orchid/Turquoise/Hot pink/Pale green
+  ['#9370DB', '#00FA9A', '#FF6347', '#87CEEB'], // Medium purple/Spring green/Tomato/Sky blue
+
+  // Cyberpunk
+  ['#FF073A', '#39FF14', '#00FFFF', '#FFFF00'], // Neon red/Neon green/Cyan/Yellow
+  ['#FE019A', '#04D9FF', '#CCFF00', '#FF6600'], // Hot magenta/Electric blue/Lime/Orange
+  ['#BC13FE', '#0FF0FC', '#DFFF00', '#FF2281'], // Purple/Cyan/Chartreuse/Pink
+  ['#FF10F0', '#00FF7F', '#FFD300', '#00BFFF'], // Fuchsia/Spring green/Gold/Deep sky blue
+
+  // Retro arcade
+  ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'], // Classic RGB + Yellow
+  ['#FF4500', '#32CD32', '#1E90FF', '#FFD700'], // Orange red/Lime green/Dodger blue/Gold
+  ['#DC143C', '#00FF7F', '#4169E1', '#FFA500'], // Crimson/Spring green/Royal blue/Orange
+  ['#FF1493', '#7FFF00', '#00CED1', '#FF8C00'], // Deep pink/Chartreuse/Dark cyan/Dark orange
+
+  // Electric / High voltage
+  ['#FFFF00', '#00FFFF', '#FF00FF', '#00FF00'], // Yellow/Cyan/Magenta/Green
+  ['#FFD700', '#00BFFF', '#FF1493', '#32CD32'], // Gold/Deep sky blue/Deep pink/Lime green
+  ['#FFA500', '#00FFFF', '#FF00FF', '#ADFF2F'], // Orange/Cyan/Magenta/Green yellow
+  ['#FFFF33', '#33FFFF', '#FF33FF', '#33FF33'], // Bright yellow/Bright cyan/Bright magenta/Bright green
+
+  // Tropical / Miami
+  ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3'], // Coral/Teal/Yellow/Mint
+  ['#F38181', '#00FFAB', '#FDFFAB', '#A8D8EA'], // Salmon/Mint/Pale yellow/Light blue
+  ['#FF9A8B', '#00D9FF', '#FFFA65', '#88D8B0'], // Peach/Sky blue/Lemon/Seafoam
+  ['#FC5C65', '#26DE81', '#FED330', '#45AAF2'], // Red/Green/Yellow/Blue (bright)
+
+  // Candy / Pastel neon
+  ['#FF69B4', '#87CEEB', '#98FB98', '#DDA0DD'], // Hot pink/Sky blue/Pale green/Plum
+  ['#FFB6C1', '#00CED1', '#F0E68C', '#DDA0DD'], // Light pink/Dark cyan/Khaki/Plum
+  ['#FF85A2', '#85E3FF', '#FFFFA2', '#A2FFD8'], // Pink/Light blue/Light yellow/Mint
+  ['#FFC0CB', '#00FFFF', '#FFFF99', '#CC99FF'], // Pink/Cyan/Light yellow/Light purple
+
+  // Fire & Ice
+  ['#FF4500', '#00BFFF', '#FFD700', '#4169E1'], // Orange red/Deep sky blue/Gold/Royal blue
+  ['#FF6347', '#00CED1', '#FFA07A', '#20B2AA'], // Tomato/Dark cyan/Light salmon/Light sea green
+  ['#FF0000', '#00FFFF', '#FF8C00', '#00BFFF'], // Red/Cyan/Dark orange/Deep sky blue
+  ['#DC143C', '#1E90FF', '#FF7F50', '#00CED1'], // Crimson/Dodger blue/Coral/Dark cyan
+
+  // Galaxy / Space
+  ['#9400D3', '#00FFFF', '#FFD700', '#FF1493'], // Dark violet/Cyan/Gold/Deep pink
+  ['#8A2BE2', '#00FA9A', '#FF6347', '#00BFFF'], // Blue violet/Spring green/Tomato/Deep sky blue
+  ['#4B0082', '#00FF7F', '#FFD700', '#FF00FF'], // Indigo/Spring green/Gold/Magenta
+  ['#6A0DAD', '#00FFFF', '#FFFF00', '#FF69B4'], // Purple/Cyan/Yellow/Hot pink
+
+  // Neon signs
+  ['#FF355E', '#00FF00', '#FFFF66', '#FF6EFF'], // Radical red/Green/Laser lemon/Pink
+  ['#FF5F1F', '#00FF7F', '#FFFF00', '#FF00FF'], // Orange/Spring green/Yellow/Magenta
+  ['#FF2400', '#39FF14', '#FFFF33', '#FF10F0'], // Scarlet/Neon green/Yellow/Fuchsia
+  ['#FF3855', '#66FF66', '#FFFF66', '#FF6FFF'], // Sizzling red/Screamin green/Laser lemon/Pink
+
+  // Metallic neon
+  ['#C0C0C0', '#00FFFF', '#FFD700', '#FF00FF'], // Silver/Cyan/Gold/Magenta
+  ['#B8860B', '#00FF7F', '#FF69B4', '#00BFFF'], // Dark goldenrod/Spring green/Hot pink/Deep sky blue
+  ['#CD853F', '#00FFFF', '#FF1493', '#7FFF00'], // Peru/Cyan/Deep pink/Chartreuse
+  ['#DAA520', '#00FA9A', '#FF6347', '#1E90FF'], // Goldenrod/Spring green/Tomato/Dodger blue
+
+  // High contrast
+  ['#FFFFFF', '#FF00FF', '#00FFFF', '#FFFF00'], // White/Magenta/Cyan/Yellow
+  ['#FFFFFF', '#FF0000', '#00FF00', '#0000FF'], // White/Red/Green/Blue
+  ['#F0F0F0', '#FF1493', '#00FF7F', '#FFD700'], // Light gray/Deep pink/Spring green/Gold
+  ['#E0E0E0', '#FF4500', '#00CED1', '#9400D3'], // Gray/Orange red/Dark cyan/Dark violet
 ];
 
 // Transparent background color for GIF export
@@ -105,6 +172,32 @@ function randomRange(min: number, max: number): number {
 // Face material types
 const FACE_MATERIALS: FaceMaterialType[] = ['matte', 'metallic', 'glossy'];
 
+// Side gradient types with weights
+// Rainbow is rarer since it's the most dramatic
+const WEIGHTED_GRADIENTS: { type: SideGradientType; weight: number }[] = [
+  { type: 'vertical', weight: 30 },
+  { type: 'horizontal', weight: 30 },
+  { type: 'diagonal', weight: 25 },
+  { type: 'radial', weight: 20 },
+  { type: 'split', weight: 20 },
+  { type: 'tricolor', weight: 15 },
+  { type: 'rainbow', weight: 10 },
+];
+
+function weightedRandomGradient(): SideGradientType {
+  const totalWeight = WEIGHTED_GRADIENTS.reduce((sum, g) => sum + g.weight, 0);
+  let random = Math.random() * totalWeight;
+
+  for (const entry of WEIGHTED_GRADIENTS) {
+    random -= entry.weight;
+    if (random <= 0) {
+      return entry.type;
+    }
+  }
+
+  return 'vertical'; // Fallback
+}
+
 function randomizeStyle(): TextStyle {
   const colors = randomChoice(COLOR_SCHEMES);
 
@@ -114,6 +207,7 @@ function randomizeStyle(): TextStyle {
     faceMaterial: randomChoice(FACE_MATERIALS),
     sideColor1: colors[1],
     sideColor2: colors[2],
+    sideGradient: weightedRandomGradient(),
     edgeColor: colors[3],
     edgeColorEnabled: Math.random() < 0.5,
     chromaKey: CHROMA_KEY,
@@ -165,11 +259,22 @@ function randomizeAnimation(): AnimationConfig {
       amplitude = 0.5;
   }
 
+  // Swing animations look bad from non-zero initial angles, so force them to 0
+  // Exception: swingZ can look good with a slight upward tilt (-20°, 0°)
+  let initialAngle: { x: number; y: number };
+  if (type === 'swingX' || type === 'swingY') {
+    initialAngle = { x: 0, y: 0 };
+  } else if (type === 'swingZ') {
+    initialAngle = { x: -20 * Math.PI / 180, y: 0 };
+  } else {
+    initialAngle = weightedRandomInitialAngle();
+  }
+
   return {
     type,
     amplitude,
     cycleDuration,
-    initialAngle: weightedRandomInitialAngle(),
+    initialAngle,
   };
 }
 

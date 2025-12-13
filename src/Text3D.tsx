@@ -4,7 +4,7 @@ import { Text3D, Center } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TextConfig } from './types';
 import { applyAnimationTransform, isPerCharacterAnimation, getWaveOffset } from './animation';
-import { createBevelEdgeMaterial } from './BevelEdgeMaterial';
+import { createBevelEdgeMaterial, updateBevelMaterialTime } from './BevelEdgeMaterial';
 import { calculateCharPositions } from './textMeasure';
 
 interface Text3DComponentProps {
@@ -57,6 +57,11 @@ export function Text3DComponent({ config, groupRef }: Text3DComponentProps) {
         }
       });
     }
+
+    // Update time uniform for animated gradients (rainbow)
+    if (config.style.sideGradient === 'rainbow') {
+      updateBevelMaterialTime(sideMaterialRef.current, elapsedTime);
+    }
   });
 
   // Create face material based on material type
@@ -101,9 +106,14 @@ export function Text3DComponent({ config, groupRef }: Text3DComponentProps) {
       config.style.sideColor1,
       config.style.sideColor2,
       config.style.edgeColor,
-      config.style.edgeColorEnabled
+      config.style.edgeColorEnabled,
+      config.style.sideGradient
     );
-  }, [config.style.sideColor1, config.style.sideColor2, config.style.edgeColor, config.style.edgeColorEnabled]);
+  }, [config.style.sideColor1, config.style.sideColor2, config.style.edgeColor, config.style.edgeColorEnabled, config.style.sideGradient]);
+
+  // Store ref to side material for animated gradients
+  const sideMaterialRef = useRef<THREE.ShaderMaterial>(sideMaterial);
+  sideMaterialRef.current = sideMaterial;
 
   // Track global character index for wave animation (used during render)
   let globalCharIndex = 0;

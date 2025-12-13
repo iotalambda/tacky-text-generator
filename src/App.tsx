@@ -172,6 +172,9 @@ function App() {
                 <li>
                   <span className="config-label">Sides</span> <span className="config-value"><span className="color-swatch" style={{ backgroundColor: config.style.sideColor1 }} /> <span className="color-swatch" style={{ backgroundColor: config.style.sideColor2 }} /></span>
                 </li>
+                <li>
+                  <span className="config-label">Gradient</span> <span className="config-value">{config.style.sideGradient}</span>
+                </li>
                 <li style={{ opacity: config.style.edgeColorEnabled ? 1 : 0.5 }}>
                   <span className="config-label">Edge</span> <span className="config-value"><span className="color-swatch" style={{ backgroundColor: config.style.edgeColor }} /> {config.style.edgeColorEnabled ? 'On' : 'Off'}</span>
                 </li>

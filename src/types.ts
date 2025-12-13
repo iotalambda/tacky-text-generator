@@ -14,12 +14,22 @@ export type FaceMaterialType =
   | 'metallic'     // Highly reflective metal look
   | 'glossy';      // Shiny plastic look
 
+export type SideGradientType =
+  | 'vertical'     // Top to bottom gradient (original)
+  | 'horizontal'   // Left to right gradient
+  | 'diagonal'     // Diagonal gradient (top-left to bottom-right)
+  | 'radial'       // Radial gradient from center
+  | 'split'        // Hard split between two colors
+  | 'tricolor'     // Three color bands
+  | 'rainbow';     // Animated rainbow cycling
+
 export interface TextStyle {
   fontUrl: string;
   faceColor: string;
   faceMaterial: FaceMaterialType; // Material type for the face
   sideColor1: string; // First side color (blends with sideColor2)
   sideColor2: string; // Second side color (blends with sideColor1)
+  sideGradient: SideGradientType; // Type of gradient pattern on sides
   edgeColor: string; // Color for the bevel edge between face and side
   edgeColorEnabled: boolean; // Whether edge coloring is used
   chromaKey: string; // Background color used for GIF transparency (should be distinct from text colors)

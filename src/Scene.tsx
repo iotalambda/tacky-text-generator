@@ -76,6 +76,7 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
     maxZ: 20, // Don't go further than this
     stepSize: 0.3,
     stepsPerCycle: 24, // Check this many animation positions per camera distance
+    numCycles: 2, // Run through 2 full cycles to catch all edge cases
     animationStep: 0, // Current animation step being checked
     // Screen bounds tracking (accumulated across all animation frames)
     screenBounds: { minX: 1, maxX: 0, minY: 1, maxY: 0 } as ScreenBounds,
@@ -117,13 +118,23 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
         cam.updateProjectionMatrix();
 
         // Apply animation transform for current step
-        const t = cal.animationStep / cal.stepsPerCycle;
+        // Use modulo to wrap t within 0-1 range across multiple cycles
+        const totalSteps = cal.stepsPerCycle * cal.numCycles;
+        const t = (cal.animationStep % cal.stepsPerCycle) / cal.stepsPerCycle;
         applyAnimationTransform(group, config, t);
         group.updateMatrixWorld(true);
 
         // Check bounds
         const box = new THREE.Box3().setFromObject(group);
         let overflowDetected = false;
+
+        // For wave animations, expand the bounding box vertically to account for
+        // per-character wave motion that isn't captured in the group transform
+        const isWaveAnimation = config.animation.type === 'wave';
+        if (isWaveAnimation) {
+          box.min.y -= config.animation.amplitude;
+          box.max.y += config.animation.amplitude;
+        }
 
         if (!box.isEmpty()) {
           const frustum = new THREE.Frustum();
@@ -173,8 +184,8 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
           // This step passed, move to next
           cal.animationStep++;
 
-          if (cal.animationStep >= cal.stepsPerCycle) {
-            // All steps passed! Move to bounds calculation phase
+          if (cal.animationStep >= totalSteps) {
+            // All steps across all cycles passed! Move to bounds calculation phase
             cal.finalZ = cal.currentZ;
             cal.phase = 'bounds';
             cal.animationStep = 0;
@@ -192,6 +203,7 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
     if (cal.phase === 'bounds') {
       const stepsPerFrame = SHOW_CALIBRATION ? 1 : 10;
       let stepsThisFrame = 0;
+      const totalSteps = cal.stepsPerCycle * cal.numCycles;
 
       while (stepsThisFrame < stepsPerFrame && cal.phase === 'bounds') {
         stepsThisFrame++;
@@ -202,7 +214,8 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
         cam.updateProjectionMatrix();
 
         // Apply animation transform for current step
-        const t = cal.animationStep / cal.stepsPerCycle;
+        // Use modulo to wrap t within 0-1 range across multiple cycles
+        const t = (cal.animationStep % cal.stepsPerCycle) / cal.stepsPerCycle;
         applyAnimationTransform(group, config, t);
         group.updateMatrixWorld(true);
 
@@ -237,22 +250,29 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
 
         cal.animationStep++;
 
-        if (cal.animationStep >= cal.stepsPerCycle) {
-          // Bounds calculation complete!
+        if (cal.animationStep >= totalSteps) {
+          // Bounds calculation complete (after all cycles)!
           cal.phase = 'done';
           state.clock.elapsedTime = 0;
 
-          // Add a small padding to bounds (2%)
-          const padding = 0.02;
+          // Add padding to bounds
+          // Base padding is 2%, but wave animations need extra vertical padding
+          // because the per-character wave motion isn't captured during calibration
+          const basePadding = 0.02;
+          const isWaveAnimation = config.animation.type === 'wave';
+          // Wave amplitude is in world units, convert roughly to screen proportion
+          // The amplitude causes characters to move up/down, so add extra Y padding
+          const waveExtraPadding = isWaveAnimation ? config.animation.amplitude * 0.15 : 0;
+
           const bounds: ScreenBounds = {
-            minX: Math.max(0, cal.screenBounds.minX - padding),
-            maxX: Math.min(1, cal.screenBounds.maxX + padding),
-            minY: Math.max(0, cal.screenBounds.minY - padding),
-            maxY: Math.min(1, cal.screenBounds.maxY + padding),
+            minX: Math.max(0, cal.screenBounds.minX - basePadding),
+            maxX: Math.min(1, cal.screenBounds.maxX + basePadding),
+            minY: Math.max(0, cal.screenBounds.minY - basePadding - waveExtraPadding),
+            maxY: Math.min(1, cal.screenBounds.maxY + basePadding + waveExtraPadding),
           };
 
           if (SHOW_CALIBRATION) {
-            console.log('Bounds calibration complete:', bounds);
+            console.log('Bounds calibration complete:', bounds, isWaveAnimation ? '(wave padding applied)' : '');
           }
           onCalibrated(cal.finalZ, bounds);
           return;

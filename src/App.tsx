@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Scene } from './Scene';
 import type { SceneHandle, ScreenBounds } from './Scene';
 import type { TextConfig } from './types';
@@ -7,9 +7,34 @@ import { captureGif, downloadBlob } from './GifCapture';
 import type { GifCaptureOptions } from './GifCapture';
 import './App.css';
 
+// Declare window extensions for Playwright automation
+declare global {
+  interface Window {
+    __EPPW__?: {
+      lastGifBlob: Blob | null;
+      lastGifBase64: string | null;
+      captureStatus: 'idle' | 'capturing' | 'done' | 'error';
+      errorMessage: string | null;
+    };
+  }
+}
+
 function App() {
   const [inputText, setInputText] = useState('Welcome to My\nMediocre Blog');
   const [config, setConfig] = useState<TextConfig | null>(null);
+
+  // Initialize window API for Playwright automation
+  useEffect(() => {
+    window.__EPPW__ = {
+      lastGifBlob: null,
+      lastGifBase64: null,
+      captureStatus: 'idle',
+      errorMessage: null,
+    };
+    return () => {
+      delete window.__EPPW__;
+    };
+  }, []);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(0);
@@ -36,6 +61,14 @@ function App() {
     setIsCapturing(true);
     setCaptureProgress(0);
 
+    // Update window API status for Playwright
+    if (window.__EPPW__) {
+      window.__EPPW__.captureStatus = 'capturing';
+      window.__EPPW__.lastGifBlob = null;
+      window.__EPPW__.lastGifBase64 = null;
+      window.__EPPW__.errorMessage = null;
+    }
+
     // Reset the animation clock to start from beginning
     sceneRef.current?.resetClock();
 
@@ -61,6 +94,21 @@ function App() {
         setCaptureProgress(progress);
       });
 
+      // Store blob in window API for Playwright access
+      if (window.__EPPW__) {
+        window.__EPPW__.lastGifBlob = blob;
+        // Convert to base64 for easy extraction
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (window.__EPPW__ && typeof reader.result === 'string') {
+            // Remove data URL prefix to get pure base64
+            window.__EPPW__.lastGifBase64 = reader.result.split(',')[1];
+            window.__EPPW__.captureStatus = 'done';
+          }
+        };
+        reader.readAsDataURL(blob);
+      }
+
       // Generate filename from text
       const filename = config.text
         .split('\n')[0]
@@ -71,6 +119,10 @@ function App() {
       downloadBlob(blob, filename);
     } catch (error) {
       console.error('Failed to capture GIF:', error);
+      if (window.__EPPW__) {
+        window.__EPPW__.captureStatus = 'error';
+        window.__EPPW__.errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      }
       alert('Failed to create GIF. Please try again.');
     } finally {
       setIsCapturing(false);
@@ -116,6 +168,7 @@ function App() {
             <label htmlFor="text-input">Enter your text:</label>
             <textarea
               id="text-input"
+              data-testid="text-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Enter text here...\nUse multiple lines!"
@@ -126,6 +179,7 @@ function App() {
           <div className="button-group">
             <button
               className="btn btn-primary"
+              data-testid="generate-btn"
               onClick={handleGenerate}
               disabled={isGenerating || isCapturing || !inputText.trim()}
             >
@@ -134,19 +188,21 @@ function App() {
           </div>
 
           {config && (
-            <div className="export-group">
+            <div className="export-group" data-testid="export-group">
               {isCapturing ? (
-                <div className="capture-progress">
+                <div className="capture-progress" data-testid="capture-progress" data-progress={Math.round(captureProgress * 100)}>
                   Capturing...<br />
                   {Math.round(captureProgress * 100)}%
                 </div>
               ) : (
-                [320, 640, 1280].map((width) => {
+                [320, 640, 1280].map((width, ix, arr) => {
                   const dims = getOutputDimensions(width);
+                  const isLargest = ix === arr.length - 1;
                   return (
                     <button
                       key={width}
                       className="btn btn-secondary btn-export"
+                      data-testid={isLargest ? 'export-btn-largest' : `export-btn-${width}`}
                       onClick={() => handleExportGif(width)}
                       disabled={isCapturing || isCalibrating}
                     >

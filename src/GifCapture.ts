@@ -11,6 +11,7 @@ export interface GifCaptureOptions {
   fps: number; // Legacy - now uses TARGET_FPS constant
   quality: number; // 1-30, lower is better quality but larger file
   getAnimationT: () => number; // Function to get current animation progress (0-1)
+  setAnimationT?: (t: number) => void; // Optional: set animation progress for frame-by-frame capture
   cycleDuration: number; // Animation cycle duration in seconds
   screenBounds?: ScreenBounds | null; // Optional screen bounds for cropping
   chromaKey: string; // Hex color to use as transparent background (e.g., '#000000')
@@ -130,7 +131,7 @@ export async function captureGif(
   options: GifCaptureOptions,
   onProgress?: (progress: number) => void
 ): Promise<Blob> {
-  const { width, height, getAnimationT, cycleDuration, screenBounds, chromaKey } = options;
+  const { width, height, setAnimationT, cycleDuration, screenBounds, chromaKey } = options;
   const chromaKeyRgb = hexToRgb(chromaKey);
   // Very strict threshold - only exact black (#000000) or nearly black pixels are transparent
   // This prevents dark dithered pixels from being treated as background
@@ -167,97 +168,77 @@ export async function captureGif(
   scaledCanvas.height = outputHeight;
   const ctx = scaledCanvas.getContext('2d', { willReadFrequently: true })!;
 
-  // Store frames until cycle completes
-  const frames: ImageData[] = [];
-
   // Calculate target frame count and timing
   const targetFrameCount = Math.round(cycleDuration * TARGET_FPS);
   const frameDelay = Math.round(100 / TARGET_FPS); // GIF uses centiseconds (1/100th of second)
 
-  return new Promise((resolve) => {
-    let previousT = getAnimationT();
-    let cycleCompleted = false;
+  // Frame-by-frame capture: we control the animation timing precisely
+  // This works reliably in headless browsers where rAF timing may be inconsistent
+  const frames: ImageData[] = [];
 
-    const captureFrame = () => {
-      const currentT = getAnimationT();
+  for (let i = 0; i < targetFrameCount; i++) {
+    const t = i / targetFrameCount; // 0 to just under 1
 
-      if (currentT < previousT && frames.length > 0) {
-        cycleCompleted = true;
-      }
+    // Set animation to exact position
+    if (setAnimationT) {
+      setAnimationT(t);
+    }
 
-      previousT = currentT;
+    // Wait for a frame to render - this allows Three.js useFrame to run
+    await new Promise(resolve => requestAnimationFrame(resolve));
 
-      if (cycleCompleted) {
-        // Select frames evenly distributed
-        const selectedFrames: ImageData[] = [];
+    // Capture this frame
+    ctx.fillStyle = chromaKey;
+    ctx.fillRect(0, 0, outputWidth, outputHeight);
+    ctx.drawImage(canvas, srcX, srcY, srcW, srcH, 0, 0, outputWidth, outputHeight);
 
-        if (frames.length <= targetFrameCount) {
-          selectedFrames.push(...frames);
-        } else {
-          for (let i = 0; i < targetFrameCount; i++) {
-            const sourceIndex = Math.floor((i / targetFrameCount) * frames.length);
-            selectedFrames.push(frames[sourceIndex]);
-          }
-        }
+    frames.push(ctx.getImageData(0, 0, outputWidth, outputHeight));
 
-        onProgress?.(0.1);
+    onProgress?.((i + 1) / targetFrameCount * 0.5); // First 50% is capturing
+  }
 
-        // Build global palette from all frames
-        const palette = buildGlobalPalette(selectedFrames, chromaKeyRgb, threshold);
+  onProgress?.(0.5);
 
-        onProgress?.(0.2);
+  // Build global palette from all frames
+  const palette = buildGlobalPalette(frames, chromaKeyRgb, threshold);
 
-        // Convert palette to packed RGB integers for omggif
-        // omggif expects an array of 256 integers, each as 0xRRGGBB
-        const packedPalette: number[] = palette.map(
-          ([r, g, b]) => (r << 16) | (g << 8) | b
-        );
+  onProgress?.(0.6);
 
-        // Estimate buffer size (generous estimate)
-        const bufferSize = outputWidth * outputHeight * selectedFrames.length * 2 + 10000;
-        const buffer = new Uint8Array(bufferSize);
+  // Convert palette to packed RGB integers for omggif
+  const packedPalette: number[] = palette.map(
+    ([r, g, b]) => (r << 16) | (g << 8) | b
+  );
 
-        // Create GIF writer with global palette
-        const gif = new GifWriter(buffer, outputWidth, outputHeight, {
-          palette: packedPalette,
-          loop: 0, // Loop forever
-        });
+  // Estimate buffer size (generous estimate)
+  const bufferSize = outputWidth * outputHeight * frames.length * 2 + 10000;
+  const buffer = new Uint8Array(bufferSize);
 
-        // Add each frame
-        for (let i = 0; i < selectedFrames.length; i++) {
-          const indexed = indexFrame(selectedFrames[i], palette, chromaKeyRgb, threshold);
-          gif.addFrame(0, 0, outputWidth, outputHeight, indexed, {
-            delay: frameDelay,
-            transparent: 0, // Index 0 is transparent
-            disposal: 2, // Restore to background
-          });
-
-          onProgress?.(0.2 + (i / selectedFrames.length) * 0.8);
-        }
-
-        // Get the actual bytes written
-        const gifData = buffer.slice(0, gif.end());
-
-        // Create blob
-        const blob = new Blob([gifData], { type: 'image/gif' });
-        onProgress?.(1);
-        resolve(blob);
-        return;
-      }
-
-      // Capture this frame
-      ctx.fillStyle = chromaKey;
-      ctx.fillRect(0, 0, outputWidth, outputHeight);
-      ctx.drawImage(canvas, srcX, srcY, srcW, srcH, 0, 0, outputWidth, outputHeight);
-
-      // Store the frame data
-      frames.push(ctx.getImageData(0, 0, outputWidth, outputHeight));
-
-      requestAnimationFrame(captureFrame);
-    };
-
-    captureFrame();
+  // Create GIF writer with global palette
+  const gif = new GifWriter(buffer, outputWidth, outputHeight, {
+    palette: packedPalette,
+    loop: 0, // Loop forever
   });
+
+  // Add each frame
+  for (let i = 0; i < frames.length; i++) {
+    const indexed = indexFrame(frames[i], palette, chromaKeyRgb, threshold);
+    gif.addFrame(0, 0, outputWidth, outputHeight, indexed, {
+      delay: frameDelay,
+      transparent: 0, // Index 0 is transparent
+      disposal: 2, // Restore to background
+    });
+
+    onProgress?.(0.6 + (i / frames.length) * 0.4); // Last 40% is encoding
+  }
+
+  // Get the actual bytes written
+  const gifData = buffer.slice(0, gif.end());
+
+  // Create blob
+  const blob = new Blob([gifData], { type: 'image/gif' });
+  onProgress?.(1);
+
+  return blob;
 }
 
 export function downloadBlob(blob: Blob, filename: string) {

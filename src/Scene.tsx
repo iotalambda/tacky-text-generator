@@ -1,4 +1,4 @@
-import { Suspense, forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { Suspense, forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Environment } from '@react-three/drei';
 import * as THREE from 'three';
@@ -24,19 +24,21 @@ export interface SceneHandle {
   getCanvas: () => HTMLCanvasElement | null;
   resetClock: () => void;
   getAnimationT: () => number; // Get current animation progress (0-1)
+  setAnimationT: (t: number) => void; // Set animation progress (0-1) for frame-by-frame capture
   getScreenBounds: () => ScreenBounds | null; // Get calibrated screen bounds
+  getCycleDuration: () => number; // Get animation cycle duration in seconds
 }
 
 interface ClockControllerProps {
   cycleDuration: number;
-  onMount: (fns: { reset: () => void; getT: () => number }) => void;
+  onMount: (fns: { reset: () => void; getT: () => number; setT: (t: number) => void }) => void;
 }
 
 // Component to expose clock control
 function ClockController({ cycleDuration, onMount }: ClockControllerProps) {
   const { clock } = useThree();
 
-  // Expose the reset and getT functions on mount
+  // Expose the reset, getT, and setT functions on mount
   useImperativeHandle(
     { current: null },
     () => {
@@ -48,6 +50,10 @@ function ClockController({ cycleDuration, onMount }: ClockControllerProps) {
         getT: () => {
           const t = (clock.elapsedTime % cycleDuration) / cycleDuration;
           return t;
+        },
+        setT: (t: number) => {
+          // Set clock time to match the desired t value (0-1)
+          clock.elapsedTime = t * cycleDuration;
         },
       });
       return null;
@@ -288,7 +294,7 @@ function CameraCalibrator({ config, textGroupRef, onCalibrated }: CameraCalibrat
 interface SceneContentProps {
   config: TextConfig;
   configKey: string; // Unique key to force re-mount when config changes
-  onClockMount: (fns: { reset: () => void; getT: () => number }) => void;
+  onClockMount: (fns: { reset: () => void; getT: () => number; setT: (t: number) => void }) => void;
   onCalibrationComplete: (bounds: ScreenBounds) => void;
 }
 
@@ -428,8 +434,9 @@ function BoundingBoxOverlay({ bounds }: { bounds: ScreenBounds }) {
 
 export const Scene = forwardRef<SceneHandle, SceneProps>(({ config, onCalibrationComplete: onCalibrationCompleteProp }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const clockFnsRef = useRef<{ reset: () => void; getT: () => number } | null>(null);
+  const clockFnsRef = useRef<{ reset: () => void; getT: () => number; setT: (t: number) => void } | null>(null);
   const screenBoundsRef = useRef<ScreenBounds | null>(null);
+  const cycleDurationRef = useRef<number>(2); // Default, will be updated when config changes
 
   // Track which config we've completed calibration for
   const configKey = config ? JSON.stringify(config) : null;
@@ -439,11 +446,20 @@ export const Scene = forwardRef<SceneHandle, SceneProps>(({ config, onCalibratio
   // We're calibrating if we have a config but haven't completed calibration for this specific config
   const isCalibrating = configKey !== null && calibratedConfigKey !== configKey;
 
+  // Update cycleDurationRef when config changes
+  useEffect(() => {
+    if (config) {
+      cycleDurationRef.current = config.animation.cycleDuration;
+    }
+  }, [config]);
+
   useImperativeHandle(ref, () => ({
     getCanvas: () => canvasRef.current,
     resetClock: () => clockFnsRef.current?.reset(),
     getAnimationT: () => clockFnsRef.current?.getT() ?? 0,
+    setAnimationT: (t: number) => clockFnsRef.current?.setT(t),
     getScreenBounds: () => screenBoundsRef.current,
+    getCycleDuration: () => cycleDurationRef.current,
   }));
 
   if (!config) {

@@ -84,6 +84,7 @@ function App() {
       fps: 20, // Not used directly, kept for reference
       quality: 20, // Balanced quality/size (1-30, lower = better quality but larger)
       getAnimationT: () => sceneRef.current?.getAnimationT() ?? 0,
+      setAnimationT: (t: number) => sceneRef.current?.setAnimationT(t), // For frame-by-frame capture
       cycleDuration: config.animation.cycleDuration, // Pass cycle duration for correct timing
       screenBounds, // Crop to calibrated bounds
       chromaKey: config.style.chromaKey, // Use the color scheme's chroma key for transparency

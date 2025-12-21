@@ -374,8 +374,8 @@ function SceneContent({ config, onClockMount, onCalibrationComplete }: SceneCont
         intensity={config.light.intensity}
         castShadow
       />
-      {/* 16 lights surrounding the text */}
-      <SurroundingLights />
+      {/* 16 lights surrounding the text (skip for animations that don't benefit from them) */}
+      {!['bounce', 'pulse', 'wave', 'swingZ'].includes(config.animation.type) && <SurroundingLights />}
 
       {/* Environment map for reflections - background: false ensures it doesn't override our chroma key */}
       <Environment preset="lobby" background={false} />
